@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.cluster import KMeans
+from get_box_intensity import get_box_intensity
 
 def initial_class_kmean_sub(rec, curr_model, classify_info):
     """

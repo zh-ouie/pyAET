@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import interpn
 from scipy.interpolate import interp3d
 
 def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
@@ -16,15 +17,16 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
     Returns:
     - points (numpy.ndarray): Intensity values for points within the box.
     """
-    
+    global points
     Num_atom = curr_model.shape[1]
 
     # Obtain global intensity histogram
     ds = 1 / O_Ratio
-
-    XX, YY, ZZ = np.meshgrid(np.arange(-halfSize, halfSize + ds, ds),
-                            np.arange(-halfSize, halfSize + ds, ds),
-                            np.arange(-halfSize, halfSize + ds, ds))
+    
+    #fix
+    XX=np.linspace(-halfSize, halfSize + int(ds),  2*halfSize + int(ds))
+    YY=np.linspace(-halfSize, halfSize + int(ds), 2*halfSize + int(ds))
+    ZZ=np.linspace(-halfSize, halfSize + int(ds),2*halfSize + int(ds))
 
     if SPHyn:
         useInd = (XX**2 + YY**2 + ZZ**2) <= (halfSize + 0.5 * ds)**2
@@ -45,10 +47,22 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
         x_set[:, k] = XX + curr_model[0, k]
         z_set[:, k] = ZZ + curr_model[2, k]
 
+    #fix
+    indx=np.where(useInd)[0]
+    rec1 = rec[indx,:,:]
+    rec2 = rec1[:,indx,:]
+    rec3 = rec2[:,:,indx]
+
+    '''
     if interp_type == 'linear':
         # Implement your own linear interpolation method if needed.
+        
+        points=0
         pass
     else:
-        points = interp3d(x_set, y_set, z_set, rec, kind=interp_type)
+    '''
+    points1=(YY, XX, ZZ)
+    points2=np.array([y_set,x_set, z_set]).T
+    points = interpn(points1,rec3,points2, method = interp_type,bounds_error=False,fill_value=0)
 
-    return points
+    return points.T

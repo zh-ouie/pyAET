@@ -1,4 +1,11 @@
 import numpy as np
+from scipy.interpolate import interpn
+from scipy.interpolate import RegularGridInterpolator
+
+from src.My_paddzero import My_paddzero
+from src.initial_class_kmean_sub import initial_class_kmean_sub
+from src.plot_class_hist import plot_class_hist
+from src.local_class_kmean_sub import local_class_kmean_sub
 
 # Define user-defined functions if not already defined
 def My_paddzero(data, new_shape):
@@ -18,29 +25,37 @@ def local_class_kmean_sub(FinalVol_single, atom_model, temp_class_atomtype, clas
     pass
 
 
-def main_classification(new_model_file_path, Dsetvol_file_path):
-
+def main_classification(new_model, Dsetvol):
+    
     # Load traced atomic positions and reconstruction volume
     # new_model = np.load('traced_model_inPixel.npy')
     # Dsetvol = np.load('MG_reconstruction_volume.npy')
-
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-    xx = np.arange(1, Dsetvol.shape[0] + 1) - int((Dsetvol.shape[0] + 1) / 2)
-    yy = np.arange(1, Dsetvol.shape[1] + 1) - int((Dsetvol.shape[1] + 1) / 2)
-    zz = np.arange(1, Dsetvol.shape[2] + 1) - int((Dsetvol.shape[2] + 1) / 2)
+    
+    #xx,yy,zz could be arranged like this:
+     
+    xx =  np.linspace(-150, 150,301)
+    yy =  np.linspace(-150, 150,301)
+    zz =  np.linspace(-150, 150,301)
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
     zzi = np.arange(3 * zz[0], zz[-1] * 3 + 1) / 3
 
     xxi = xxi[2:]  # Skip the first two elements
-    yyi = yyi[2:]  # Skip the first two elements
-    zzi = zzi[2:]  # Skip the first two elements
+    yyi = yyi[2:]  
+    zzi = zzi[2:]  
 
-    Y, X, Z = np.meshgrid(yy, xx, zz)
+    #Y, X, Z = np.meshgrid(yy, xx, zz)
     Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
 
-    Dsetvol = np.interp((Yi, Xi, Zi), (Y, X, Z), Dsetvol, method='cubic', fill_value=0)
+    points=(yy, xx, zz)
+    Dsetvol = interpn(points, Dsetvol, (Yi, Xi, Zi), method='linear', bounds_error=False, fill_value=0)
+    '''
+    #another possible version:
+    reg=RegularGridInterpolator(points, Dsetvol)
+    Dsetvol=reg((Yi, Xi, Zi))
+    '''
     FinalVol = My_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
 
     FinalVol_single = FinalVol.astype(np.single)
@@ -85,3 +100,17 @@ def main_classification(new_model_file_path, Dsetvol_file_path):
 
     # Save 'local_atomtype' to a file or process it further
     np.save('output/localC_res.npy', local_class_atomtype)
+
+'''
+#use the following code to get npy version of data:
+mat = scipy.io.loadmat('input\traced_model_inPixel.mat')
+data = mat['']
+np.save('traced_model_inPixel.npy', data)
+mat = scipy.io.loadmat('input\MG_reconstruction_volume.mat')
+data = mat['final_Rec']
+np.save('MG_reconstruction_volume.npy', data)
+'''
+
+newmodel = np.load('traced_model_inPixel.npy',allow_pickle=True)
+Dsetvol = np.load('MG_reconstruction_volume.npy')
+main_classification(newmodel, Dsetvol)
