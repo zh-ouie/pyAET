@@ -31,8 +31,7 @@ def main_classification(new_model, Dsetvol):
     # new_model = np.load('traced_model_inPixel.npy')
     # Dsetvol = np.load('MG_reconstruction_volume.npy')
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-    
-    #xx,yy,zz could be arranged like this:
+
      
     xx =  np.linspace(-150, 150,301)
     yy =  np.linspace(-150, 150,301)
@@ -46,7 +45,7 @@ def main_classification(new_model, Dsetvol):
     yyi = yyi[2:]  
     zzi = zzi[2:]  
 
-    #Y, X, Z = np.meshgrid(yy, xx, zz)
+
     Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
 
     points=(yy, xx, zz)

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interpn
-from scipy.interpolate import interp3d
+
 
 def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
     """
