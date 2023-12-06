@@ -42,10 +42,10 @@ def main_classification(new_model, Dsetvol):
     xxi = xxi[2:]  # Skip the first two elements
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
-    Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
-
     points=(yy, xx, zz)
-    Dsetvol = interpn(points, Dsetvol, (Yi, Xi, Zi), method='linear', bounds_error=False, fill_value=0)
+    Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
+    
+    Dsetvol = interpn(points, Dsetvol, (Yi, Xi, Zi), method='cubic', bounds_error=False, fill_value=0)
     '''
     #another possible version:
     reg=RegularGridInterpolator(points, Dsetvol)
