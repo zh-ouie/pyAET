@@ -31,11 +31,10 @@ def main_classification(new_model, Dsetvol):
     # new_model = np.load('traced_model_inPixel.npy')
     # Dsetvol = np.load('MG_reconstruction_volume.npy')
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-
      
-    xx =  np.linspace(-150, 150,301)
-    yy =  np.linspace(-150, 150,301)
-    zz =  np.linspace(-150, 150,301)
+    xx =  np.linspace(-Dsetvol.shape[0], Dsetvol.shape[0],Dsetvol.shape[0]+1)
+    yy =  np.linspace(-Dsetvol.shape[1], Dsetvol.shape[1],Dsetvol.shape[1]+1)
+    zz =  np.linspace(-Dsetvol.shape[2], Dsetvol.shape[2],Dsetvol.shape[2]+1)
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
@@ -44,8 +43,6 @@ def main_classification(new_model, Dsetvol):
     xxi = xxi[2:]  # Skip the first two elements
     yyi = yyi[2:]  
     zzi = zzi[2:]  
-
-
     Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
 
     points=(yy, xx, zz)
@@ -56,7 +53,6 @@ def main_classification(new_model, Dsetvol):
     Dsetvol=reg((Yi, Xi, Zi))
     '''
     FinalVol = My_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
-
     FinalVol_single = FinalVol.astype(np.single)
 
     # Apply global k-mean classification on the reconstruction

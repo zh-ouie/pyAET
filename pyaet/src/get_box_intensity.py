@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.interpolate import interpn
 
-
 def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
     """
     Calculate the intensity values for points within a box around atomic positions.
@@ -23,15 +22,16 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
     # Obtain global intensity histogram
     ds = 1 / O_Ratio
     
-    #fix
-    XX=np.linspace(-halfSize, halfSize + int(ds),  2*halfSize + int(ds))
-    YY=np.linspace(-halfSize, halfSize + int(ds), 2*halfSize + int(ds))
+    XX=np.linspace(-halfSize, halfSize + int(ds),2*halfSize + int(ds))
+    YY=np.linspace(-halfSize, halfSize + int(ds),2*halfSize + int(ds))
     ZZ=np.linspace(-halfSize, halfSize + int(ds),2*halfSize + int(ds))
 
     if SPHyn:
         useInd = (XX**2 + YY**2 + ZZ**2) <= (halfSize + 0.5 * ds)**2
     else:
         useInd = np.ones_like(XX, dtype=bool)
+    indx=np.where(useInd)[0]
+    rec = rec[indx[0]-1:indx[-1],indx[0]-1:indx[-1],indx[0]-1:indx[-1]]
 
     # Generate points coordinates
     YY = YY[useInd]
@@ -47,22 +47,8 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
         x_set[:, k] = XX + curr_model[0, k]
         z_set[:, k] = ZZ + curr_model[2, k]
 
-    #fix
-    indx=np.where(useInd)[0]
-    rec1 = rec[indx,:,:]
-    rec2 = rec1[:,indx,:]
-    rec3 = rec2[:,:,indx]
-
-    '''
-    if interp_type == 'linear':
-        # Implement your own linear interpolation method if needed.
-        
-        points=0
-        pass
-    else:
-    '''
     points1=(YY, XX, ZZ)
     points2=np.array([y_set,x_set, z_set]).T
-    points = interpn(points1,rec3,points2, method = interp_type,bounds_error=False,fill_value=0)
+    points = interpn(points1,rec,points2, method = interp_type,bounds_error=False,fill_value=0)
 
     return points.T

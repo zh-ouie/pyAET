@@ -49,4 +49,3 @@ def My_paddzero(Vol, paddedsize):
         exec(currevalstr)
     
     return PadVol
-#fix:extend the index by 1 each
