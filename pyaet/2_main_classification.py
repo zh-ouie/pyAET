@@ -1,39 +1,18 @@
 import numpy as np
 from scipy.interpolate import interpn
-from scipy.interpolate import RegularGridInterpolator
-
 from src.My_paddzero import My_paddzero
 from src.initial_class_kmean_sub import initial_class_kmean_sub
 from src.plot_class_hist import plot_class_hist
 from src.local_class_kmean_sub import local_class_kmean_sub
 
-# Define user-defined functions if not already defined
-def My_paddzero(data, new_shape):
-    # Implement 'My_paddzero' function logic here
-    pass
-
-def initial_class_kmean_sub(FinalVol_single, new_model_L, classify_info):
-    # Implement 'initial_class_kmean_sub' function logic here
-    pass
-
-def plot_class_hist(FinalVol_single, atom_model, atomtype, classify_info):
-    # Implement 'plot_class_hist' function logic here
-    pass
-
-def local_class_kmean_sub(FinalVol_single, atom_model, temp_class_atomtype, classify_info):
-    # Implement 'local_class_kmean_sub' function logic here
-    pass
-
-
 def main_classification(new_model, Dsetvol):
-    
     # Load traced atomic positions and reconstruction volume
     # new_model = np.load('traced_model_inPixel.npy')
     # Dsetvol = np.load('MG_reconstruction_volume.npy')
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-    xx =  np.linspace(-Dsetvol.shape[0], Dsetvol.shape[0],Dsetvol.shape[0]+1)
-    yy =  np.linspace(-Dsetvol.shape[1], Dsetvol.shape[1],Dsetvol.shape[1]+1)
-    zz =  np.linspace(-Dsetvol.shape[2], Dsetvol.shape[2],Dsetvol.shape[2]+1)
+    xx =  np.linspace(-(Dsetvol.shape[0]-1)/2,(Dsetvol.shape[0]-1)/2,Dsetvol.shape[0])
+    yy =  np.linspace(-(Dsetvol.shape[1]-1)/2,(Dsetvol.shape[1]-1)/2,Dsetvol.shape[1])
+    zz =  np.linspace(-(Dsetvol.shape[2]-1)/2,(Dsetvol.shape[2]-1)/2,Dsetvol.shape[2])
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
@@ -48,6 +27,7 @@ def main_classification(new_model, Dsetvol):
     Dsetvol = interpn(points, Dsetvol, (Yi, Xi, Zi), method='cubic', bounds_error=False, fill_value=0)
     '''
     #another possible version:
+    from scipy.interpolate import RegularGridInterpolator
     reg=RegularGridInterpolator(points, Dsetvol)
     Dsetvol=reg((Yi, Xi, Zi))
     '''
