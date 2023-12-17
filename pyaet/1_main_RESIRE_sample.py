@@ -1,6 +1,6 @@
 import os
 import numpy as np
-# from splinterp import RESIRE_Reconstructor
+from splinterp import RESIRE_Reconstructor
 
 # Add paths (equivalent to MATLAB's addpath)
 import sys

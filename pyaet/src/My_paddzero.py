@@ -29,17 +29,17 @@ def My_paddzero(Vol, paddedsize):
         for i in range(len(Vol.shape)):
             if Vol.shape[i] % 2 == 0:
                 if paddedsize[i] % 2 == 0:
-                    startind = 1 + (paddedsize[i] - Vol.shape[i]) // 2
+                    startind = 1 + (paddedsize[i] - Vol.shape[i]) // 2-1
                     endind = Vol.shape[i] + (paddedsize[i] - Vol.shape[i]) // 2
                 else:
-                    startind = 1 + (paddedsize[i] - Vol.shape[i] - 1) // 2
-                    endind = Vol.shape[i] + (paddedsize[i] - Vol.shape[i] - 1) // 2
+                    startind = 1 + (paddedsize[i] - Vol.shape[i]-1) // 2-1
+                    endind = Vol.shape[i] + (paddedsize[i] - Vol.shape[i]-1) // 2
             else:
                 if paddedsize[i] % 2 == 0:
-                    startind = 1 + (paddedsize[i] - Vol.shape[i] + 1) // 2
+                    startind = 1 + (paddedsize[i] - Vol.shape[i]+1) // 2-1
                     endind = Vol.shape[i] + (paddedsize[i] - Vol.shape[i] + 1) // 2
                 else:
-                    startind = 1 + (paddedsize[i] - Vol.shape[i]) // 2
+                    startind = 1 + (paddedsize[i] - Vol.shape[i]) // 2-1
                     endind = Vol.shape[i] + (paddedsize[i] - Vol.shape[i]) // 2
 
             currevalstr += f"{startind}:{endind}"
