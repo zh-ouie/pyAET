@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import interpn
+from scipy.interpolate import RegularGridInterpolator as rgi
 from src.My_paddzero import My_paddzero
 from src.initial_class_kmean_sub import initial_class_kmean_sub
 from src.plot_class_hist import plot_class_hist
@@ -10,9 +10,18 @@ def main_classification(new_model, Dsetvol):
     # new_model = np.load('traced_model_inPixel.npy')
     # Dsetvol = np.load('MG_reconstruction_volume.npy')
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-    xx =  np.linspace(-(Dsetvol.shape[0]-1)/2,(Dsetvol.shape[0]-1)/2,Dsetvol.shape[0])
-    yy =  np.linspace(-(Dsetvol.shape[1]-1)/2,(Dsetvol.shape[1]-1)/2,Dsetvol.shape[1])
-    zz =  np.linspace(-(Dsetvol.shape[2]-1)/2,(Dsetvol.shape[2]-1)/2,Dsetvol.shape[2])
+    if Dsetvol.shape[0] % 2 == 0:
+        xx = np.arange(Dsetvol.shape[0]) - int(Dsetvol.shape[0] / 2)
+    else:
+        xx = np.arange(Dsetvol.shape[0]) - int((Dsetvol.shape[0] - 1) / 2)
+    if Dsetvol.shape[1] % 2 == 0:
+        yy = np.arange(Dsetvol.shape[1]) - int(Dsetvol.shape[1] / 2)
+    else:
+        yy = np.arange(Dsetvol.shape[1]) - int((Dsetvol.shape[1] - 1) / 2)
+    if Dsetvol.shape[2] % 2 == 0:
+        zz = np.arange(Dsetvol.shape[2]) - int(Dsetvol.shape[2] / 2)
+    else:
+        zz = np.arange(Dsetvol.shape[2]) - int((Dsetvol.shape[2] - 1) / 2)
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
@@ -21,16 +30,12 @@ def main_classification(new_model, Dsetvol):
     xxi = xxi[2:]  # Skip the first two elements
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
-    points=(yy, xx, zz)
-    Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
+    points=(xx, yy, zz)
+    pointsi=np.array((xxi,yyi,zzi))
     
-    Dsetvol = interpn(points, Dsetvol, (Yi, Xi, Zi), method='cubic', bounds_error=False, fill_value=0)
-    '''
-    #another possible version:
-    from scipy.interpolate import RegularGridInterpolator
-    reg=RegularGridInterpolator(points, Dsetvol)
-    Dsetvol=reg((Yi, Xi, Zi))
-    '''
+    interp3=rgi(points,Dsetvol)
+    Dsetvol=interp3(pointsi.T)
+    
     FinalVol = My_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
     FinalVol_single = FinalVol.astype(np.single)
 
