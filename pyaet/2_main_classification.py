@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator as rgi
+from scipy.interpolate import interpn
 from src.My_paddzero import My_paddzero
 from src.initial_class_kmean_sub import initial_class_kmean_sub
 from src.plot_class_hist import plot_class_hist
@@ -31,10 +31,8 @@ def main_classification(new_model, Dsetvol):
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
     points=(xx, yy, zz)
-    pointsi=np.array((xxi,yyi,zzi))
-    
-    interp3=rgi(points,Dsetvol)
-    Dsetvol=interp3(pointsi.T)
+    Xi, Yi, Zi = np.meshgrid(xxi, yyi, zzi)
+    Dsetvol = interpn(points, Dsetvol,(Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
     
     FinalVol = My_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
     FinalVol_single = FinalVol.astype(np.single)
@@ -82,10 +80,11 @@ def main_classification(new_model, Dsetvol):
 
 '''
 #use the following code to get npy version of data:
-mat = scipy.io.loadmat('input\traced_model_inPixel.mat')
-data = mat['']
+import scipy
+mat = scipy.io.loadmat(r'input\traced_model_inPixel.mat')
+data = mat['traced_model_inPixel']
 np.save('traced_model_inPixel.npy', data)
-mat = scipy.io.loadmat('input\MG_reconstruction_volume.mat')
+mat = scipy.io.loadmat(r'input\MG_reconstruction_volume.mat')
 data = mat['final_Rec']
 np.save('MG_reconstruction_volume.npy', data)
 '''

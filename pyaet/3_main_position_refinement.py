@@ -1,6 +1,11 @@
 import numpy as np
 import scipy.optimize as optimize
 import scipy.io as sio
+from src.My_paddzero import My_paddzero
+from src.Cal_Bproj_2type import Cal_Bproj_2type
+from src.gradient_B_2type_difB import gradient_B_2type_difB
+from src.gradient_fixHB_XYZ import gradient_fixHB_XYZ
+from src.Cal_Bproj_2type2 import  Cal_Bproj_2type2
 
 # Define the fatom_vector and fparameters functions here
 
@@ -20,7 +25,7 @@ def main_position_refinement():
     # Process the data
     projections = np.maximum(projections, 0)
     projections = projections[1:, 1:, :]
-    projections = my_paddzero(projections, projections.shape + (50, 50, 0), dtype=np.float64)
+    projections = My_paddzero(projections, projections.shape + (50, 50, 0), dtype=np.float64)
 
     N1, N2, num_pj = projections.shape[:3]
     halfWidth = 4
