@@ -1,11 +1,11 @@
 import numpy as np
 import scipy.optimize as optimize
 import scipy.io as sio
-from src.My_paddzero import My_paddzero
-from src.Cal_Bproj_2type import Cal_Bproj_2type
+from src.my_paddzero import my_paddzero
+from src.cal_bproj_2type import cal_bproj_2type
 from src.gradient_B_2type_difB import gradient_B_2type_difB
 from src.gradient_fixHB_XYZ import gradient_fixHB_XYZ
-from src.Cal_Bproj_2type2 import  Cal_Bproj_2type2
+from src.cal_bproj_2type2 import  cal_bproj_2type2
 
 # Define the fatom_vector and fparameters functions here
 
@@ -25,7 +25,7 @@ def main_position_refinement():
     # Process the data
     projections = np.maximum(projections, 0)
     projections = projections[1:, 1:, :]
-    projections = My_paddzero(projections, projections.shape + (50, 50, 0), dtype=np.float64)
+    projections = my_paddzero(projections, projections.shape + (50, 50, 0), dtype=np.float64)
 
     N1, N2, num_pj = projections.shape[:3]
     halfWidth = 4
@@ -59,12 +59,12 @@ def main_position_refinement():
         xdata['projections'] = projections
 
         para0, _, _ = optimize.curve_fit(
-            Cal_Bproj_2type2, x0, xdata, projections, bounds=(lb, ub), method='trf', options=opt
+            cal_bproj_2type2, x0, xdata, projections, bounds=(lb, ub), method='trf', options=opt
         )
         print(f'H1 = {para0[0, 0]:.3f}, H2 = {para0[0, 1]:.3f}, H3 = {para0[0, 2]:.3f}')
         print(f'B11 = {para0[1, 0]:.3f}, B2 = {para0[1, 1]:.3f}, B3 = {para0[1, 2]:.3f}')
 
-        y_pred, _ = Cal_Bproj_2type(para0, xdata, projections)
+        y_pred, _ = cal_bproj_2type(para0, xdata, projections)
         xdata['projections'] = None
 
         xdata['step_sz'] = 1
