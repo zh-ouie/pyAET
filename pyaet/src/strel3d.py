@@ -21,7 +21,7 @@ def strel3d(sesize):
     ses2 = (sesize + 1) // 2  # Use integer division to handle odd diameters
     x, y, z = np.meshgrid(np.arange(-sw, sw + 1), np.arange(-sw, sw + 1), np.arange(-sw, sw + 1))
     m = np.sqrt(x**2 + y**2 + z**2)
-    b = (m <= m[ses2, ses2, sesize])
+    b = (m <= m[ses2-1, ses2-1, sesize-1])
     se = ndi.generate_binary_structure(3, 1)
     se[~b] = 0
     return se

@@ -47,8 +47,8 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
         x_set[:, k] = XX + curr_model[0, k]
         z_set[:, k] = ZZ + curr_model[2, k]
 
-    points1=(YY, XX, ZZ)
-    points2=np.array([y_set,x_set, z_set]).T
+    points1=(XX, YY, ZZ)
+    points2=np.array([x_set,y_set, z_set]).T
     points = interpn(points1,rec,points2, method = interp_type,bounds_error=False,fill_value=0)
 
     return points.T

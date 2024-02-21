@@ -1,6 +1,10 @@
 import numpy as np
+from src.my_ifft import my_ifft
+from src.my_fft import my_fft
+from src.make_fixedfa_man import make_fixedfa_man
+from src.MatrixQuaternionRot import MatrixQuaternionRot
 
-def Cal_Bproj_2type(para, xdata, ydata):
+def cal_bproj_2type(para, xdata, ydata):
     Z_arr = xdata['Z_arr']
     Res = xdata['Res']
     halfWidth = xdata['halfWidth']

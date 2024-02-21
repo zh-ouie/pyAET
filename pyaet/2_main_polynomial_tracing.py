@@ -1,9 +1,9 @@
 import numpy as np
-from scipy.interpolate import interp3
+import cv2
+from scipy.interpolate import interpn
 from scipy.ndimage import label, generate_binary_structure
 from scipy.optimize import least_squares
-import math
-
+from src.strel3d import strel3d
 
 def main_polynomial_tracing(Dsetvol_file_path):
     # Add path for user-defined functions
@@ -25,30 +25,42 @@ def main_polynomial_tracing(Dsetvol_file_path):
     SearchRad = 3
 
     # Upsample the reconstruction matrix by 3*3*3 using linear interpolation
-    xx = np.arange(1, Dsetvol.shape[0] + 1) - int((Dsetvol.shape[0] + 1) / 2)
-    yy = np.arange(1, Dsetvol.shape[1] + 1) - int((Dsetvol.shape[1] + 1) / 2)
-    zz = np.arange(1, Dsetvol.shape[2] + 1) - int((Dsetvol.shape[2] + 1) / 2)
+    if Dsetvol.shape[0] % 2 == 0:
+        xx = np.arange(Dsetvol.shape[0]) - int(Dsetvol.shape[0] / 2)
+    else:
+        xx = np.arange(Dsetvol.shape[0]) - int((Dsetvol.shape[0] - 1) / 2)
+    if Dsetvol.shape[1] % 2 == 0:
+        yy = np.arange(Dsetvol.shape[1]) - int(Dsetvol.shape[1] / 2)
+    else:
+        yy = np.arange(Dsetvol.shape[1]) - int((Dsetvol.shape[1] - 1) / 2)
+    if Dsetvol.shape[2] % 2 == 0:
+        zz = np.arange(Dsetvol.shape[2]) - int(Dsetvol.shape[2] / 2)
+    else:
+        zz = np.arange(Dsetvol.shape[2]) - int((Dsetvol.shape[2] - 1) / 2)
 
-    xxi = np.arange(3 * xx[0], xx[-1] * 3) / 3
-    yyi = np.arange(3 * yy[0], yy[-1] * 3) / 3
-    zzi = np.arange(3 * zz[0], zz[-1] * 3) / 3
+    xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
+    yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
+    zzi = np.arange(3 * zz[0], zz[-1] * 3 + 1) / 3
 
-    xxi = xxi[2:]
-    yyi = yyi[2:]
-    zzi = zzi[2:]
-
-    Y, X, Z = np.meshgrid(yy, xx, zz)
-    Yi, Xi, Zi = np.meshgrid(yyi, xxi, zzi)
-
-    Dsetvol = interp3(X, Y, Z, Dsetvol, Xi, Yi, Zi, method='spline', fill_value=0)
+    xxi = xxi[2:]  # Skip the first two elements
+    yyi = yyi[2:]  # Skip the first two elements
+    zzi = zzi[2:]  # Skip the first two elements
+    points=(xx, yy, zz)
+    Xi, Yi, Zi = np.meshgrid(xxi, yyi, zzi)
+    
+    Dsetvol = interpn(points, Dsetvol,(Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
     FinalVol = my_paddzero(Dsetvol, np.array(Dsetvol.shape) + 20)
 
     # Get polynomial power array
     fitCoeff = get_polynomial_power_array()
 
     # Get the local maxima from the reconstruction volume
-    se = generate_binary_structure(3, 1)
-    dilatedBW = label(FinalVol == dilate(FinalVol, se) & (FinalVol > Th))[0]
+    se = strel3d(3) 
+    se=np.where(se, 1, 0)
+    dilatedBW = cv2.dilate(FinalVol,se) 
+    dilatedBW = label(FinalVol == cv2.dilate(FinalVol, se) & (FinalVol > Th))[0]
+    maxPos=np.where(FinalVol==dilatedBW & FinalVol>Th)
+    
     maxVals = FinalVol[dilatedBW > 0]
     sortInd = np.argsort(maxVals)[::-1]
     maxNum = min(100000, len(sortInd))

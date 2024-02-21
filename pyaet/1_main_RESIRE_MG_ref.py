@@ -1,6 +1,4 @@
-import os
-import numpy as np
-from splinterp import RESIRE_Reconstructor
+from RESIRE_Reconstructor.RESIRE_Reconstructor import RESIRE_Reconstructor as rr
 
 # Add paths (equivalent to MATLAB's addpath)
 import sys
@@ -13,8 +11,8 @@ angle_filename = 'input/Angles.mat'
 results_filename = 'output/RESIRE_experiment_result.mat'
 
 # Create an instance of the RESIRE_Reconstructor class
-RESIRE = RESIRE_Reconstructor()
-
+RESIRE = rr()
+ 
 # Set parameters
 RESIRE.filename_Projections = pj_filename
 RESIRE.filename_Angles = angle_filename
@@ -31,22 +29,22 @@ RESIRE.set_parameters(
 )
 
 # Read files (assuming you have appropriate functions for file reading)
-RESIRE = readFiles(RESIRE)
+RESIRE = rr.readFiles(RESIRE)
 
 # Check and prepare data (assuming you have appropriate functions for this)
-RESIRE = CheckPrepareData(RESIRE)
+RESIRE = rr.CheckPrepareData(RESIRE)
 
 # Run gridding (assuming you have appropriate functions for this)
-RESIRE = runGridding(RESIRE)
+RESIRE = rr.runGridding(RESIRE)
 
 # Reconstruct (assuming you have appropriate functions for this)
-RESIRE = reconstruct(RESIRE)
+RESIRE = rr.reconstruct(RESIRE)
 
 # Clear calculation variables
-RESIRE = ClearCalcVariables(RESIRE)
+RESIRE = rr.ClearCalcVariables(RESIRE)
 
 # Get the reconstruction result
 Reconstruction = RESIRE.reconstruction
 
 # Save results (assuming you have appropriate functions for saving)
-SaveResults(RESIRE)
+rr.SaveResults(RESIRE)
