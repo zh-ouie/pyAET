@@ -1,5 +1,6 @@
 import numpy as np
 from src.my_ifft import my_ifft
+from src.my_fft import my_fft
 from src.make_fixedfa_man import make_fixedfa_man
 from src.MatrixQuaternionRot import MatrixQuaternionRot
 
@@ -80,7 +81,7 @@ def Cal_Bproj_2type2(para, xdata):
     Projs = np.sum(Grad, axis=3)
 
     for i in range(num_pj):
-        Projs[:, :, i] = my_ifft(my_ifft(Projs[:, :, i]) * fixedfa)
+        Projs[:, :, i] = my_ifft(my_fft(Projs[:, :, i]) * fixedfa)
 
     k = np.sum(Projs * ydata) / np.sum(Projs ** 2)
     Projs = Projs * k
