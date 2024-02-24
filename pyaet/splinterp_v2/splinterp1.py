@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple
+from splinterp_v2 import splinterp
 
 def mexFunction(nlhs: int, plhs: np.ndarray, nrhs: int, prhs: np.ndarray) -> None:
     """
