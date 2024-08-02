@@ -1,6 +1,6 @@
 import numpy as np
 
-def MatrixQuaternionRot(vector, theta):
+def matrix_quaternion_rot(vector, theta):
     """
     Change Euler angles to a rotation matrix using quaternion.
 

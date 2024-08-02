@@ -1,14 +1,16 @@
 '''
-I have converted the RESIRE_Reconstructor class from MATLAB to Python. Please note that in Python, the class properties are defined in the constructor __init__ and the methods are defined as regular Python methods. Also, MATLAB's indexing starts from 1, while Python's indexing starts from 0.
+I have converted the resire class from MATLAB to Python. Please note that in Python, the class properties are defined in the constructor __init__ and the methods are defined as regular Python methods. Also, MATLAB's indexing starts from 1, while Python's indexing starts from 0.
 
 
-This code defines the RESIRE_Reconstructor class in Python, mirroring the properties and methods from the MATLAB version. Please note that I've kept some methods empty as placeholders, and you should implement them according to your specific requirements. Also, make sure to include the missing methods from your original MATLAB code.
+This code defines the resire class in Python, mirroring the properties and methods from the MATLAB version. Please note that I've kept some methods empty as placeholders, and you should implement them according to your specific requirements. Also, make sure to include the missing methods from your original MATLAB code.
 '''
 
 
 import numpy as np
-from scipy.interpolate import map_coordinates
+from scipy.ndimage import map_coordinates
 import os
+import pickle
+from pyaet.resire.interp_pj_realspace import interp_pj_realspace
 
 class RESIRE_Reconstructor:
 
@@ -35,7 +37,7 @@ class RESIRE_Reconstructor:
         # filenames
         self.filename_Projections = ''
         self.filename_Angles = ''
-        self.filename_Results = './results/RESIRE_rec.mat'
+        self.filename_Results = 'RESIRE_rec'
 
         # reconstruction parameters
         self.numIterations = 50
@@ -104,7 +106,7 @@ class RESIRE_Reconstructor:
     def runGridding(self):
         print('RESIRE: Interpolate real space projections...\n\n')
         if self.griddingMethod == 1:
-            self.interp_pj_realspace()
+            interp_pj_realspace(self)
 
     def ClearCalcVariables(self):
         self.InputProjections = None
@@ -117,7 +119,15 @@ class RESIRE_Reconstructor:
         self.Rot_y = None
 
     def SaveResults(self):
-        np.savez(self.filename_Results, obj=self)
+
+        #check if folder exists, otherwise, create the folder.
+        dir_path = os.path.dirname(self.filename_Results)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        with open(f'{self.filename_Results}.pkl',"wb") as f:
+            pickle.dump(self, f)
+
 
     def set_parameters(self, **kwargs):
         for key, value in kwargs.items():
@@ -129,16 +139,6 @@ class RESIRE_Reconstructor:
     def FileExist(self, FileName):
         return os.path.isfile(FileName)
 
-    # Your other methods here
-
-    # Declare long methods in external files
-    def reconstruct(self):
-        pass
-
     # Declare short methods in this file
-    def My_volumn_index(self, big_size, ori_size):
-        pass
-
-    def interp_pj_realspace(self):
-        pass
-
+    # def My_volumn_index(self, big_size, ori_size):
+    #     pass

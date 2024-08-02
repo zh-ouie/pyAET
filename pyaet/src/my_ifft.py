@@ -11,7 +11,7 @@ def my_ifft(k):
     ndarray: The result of the inverse N-dimensional Fourier Transform.
 
     Example:
-    >>> ifft_result = my_ifft(fft_result)
+        ifft_result = my_ifft(fft_result)
     """
     realout = np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(k)))
     return realout

@@ -1,6 +1,7 @@
 import os
 import numpy as np
-from splinterp import RESIRE_Reconstructor
+from pyaet.resire import RESIRE_Reconstructor
+from pyaet.resire.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
 import sys
@@ -8,12 +9,12 @@ sys.path.append('src/')
 sys.path.append('src/splinterp/')
 
 # Define file paths
-pj_filename = 'input/sample_projections_amorphous.mat'
-angle_filename = 'input/sample_angles_amorphous.mat'
-results_filename = 'output/sample_amorphous_res.mat'
+pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_projections_amorphous.npy'
+angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_angles_amorphous.npy'
+results_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/output/sample_amorphous_res'
 
 # Create an instance of the RESIRE_Reconstructor class
-RESIRE = RESIRE_Reconstructor()
+RESIRE = RESIRE_Reconstructor.RESIRE_Reconstructor()
 
 # Set parameters
 RESIRE.filename_Projections = pj_filename
@@ -22,31 +23,35 @@ RESIRE.filename_Results = results_filename
 
 RESIRE.set_parameters(
     oversamplingRatio=3,
-    numIterations=100,
+    numIterations=2,
     monitor_R=True,
-    monitorR_loopLength=10,
+    monitorR_loopLength=1,
     griddingMethod=1,
     vector3=[1, 0, 0],
-    use_parallel=1
+    use_parallel=1,
+    save_temp=1,
+    save_loopLength=1
 )
 
-# Read files (assuming you have appropriate functions for file reading)
-RESIRE = readFiles(RESIRE)
+# Read files
+RESIRE.readFiles()
 
-# Check and prepare data (assuming you have appropriate functions for this)
-RESIRE = CheckPrepareData(RESIRE)
+# Check and prepare data
+RESIRE.CheckPrepareData()
 
-# Run gridding (assuming you have appropriate functions for this)
-RESIRE = runGridding(RESIRE)
+# Run gridding
+RESIRE.runGridding()
 
-# Reconstruct (assuming you have appropriate functions for this)
-RESIRE = reconstruct(RESIRE)
+# Reconstruct
+reconstruct(RESIRE)
 
 # Clear calculation variables
-RESIRE = ClearCalcVariables(RESIRE)
+# RESIRE.ClearCalcVariables()
 
 # Get the reconstruction result
 Reconstruction = RESIRE.reconstruction
 
-# Save results (assuming you have appropriate functions for saving)
-SaveResults(RESIRE)
+# Save results
+np.save('reconstruction_volume.npy', Reconstruction)
+RESIRE.SaveResults()
+print("done")

@@ -1,6 +1,6 @@
 import numpy as np
 
-def My_FFTN(X):
+def my_fftn(X):
     """
     Calculate the N-dimensional Fast Fourier Transform (FFT) of the input array.
 
@@ -11,7 +11,7 @@ def My_FFTN(X):
     ndarray: The result of the N-dimensional Fourier Transform.
 
     Example:
-    >>> fft_result = My_FFTN(input_array)
+        fft_result = my_fftn(input_array)
     """
     Y = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(X)))
     return Y

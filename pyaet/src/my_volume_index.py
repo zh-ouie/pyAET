@@ -1,6 +1,6 @@
 import numpy as np
 
-def My_volumn_index(big_size, ori_size):
+def my_volumn_index(big_size, ori_size):
     """
     Calculate corresponding index for a small size matrix embedded in a large size matrix.
 

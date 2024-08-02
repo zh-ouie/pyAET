@@ -1,6 +1,6 @@
 import numpy as np
 
-def My_IFFTN(X):
+def my_ifftn(X):
     """
     Calculate the inverse N-dimensional Fast Fourier Transform (IFFT) of the input array.
 
@@ -11,7 +11,7 @@ def My_IFFTN(X):
     ndarray: The result of the inverse N-dimensional Fourier Transform.
 
     Example:
-    ifft_result = My_IFFTN(fft_result)
+    ifft_result = my_ifftn(fft_result)
     """
     Y = np.fft.ifftshift(np.fft.ifftn(np.fft.fftshift(X)))
     return Y

@@ -1,6 +1,6 @@
 import numpy as np
 
-def My_paddzero(Vol, paddedsize):
+def my_paddzero(Vol, paddedsize):
     """
     Pad a N-dimensional array with zeros to match the specified size.
 
@@ -12,7 +12,7 @@ def My_paddzero(Vol, paddedsize):
         ndarray: The padded N-dimensional array.
 
     Notes:
-        My_paddzero pads the input array with zeros while preserving the center
+        my_paddzero pads the input array with zeros while preserving the center
         pixel position at (n+1)/2 (in case of n=odd) or at n/2+1 (in case of n=even)
         in each dimension.
 

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interpn
-from src.My_paddzero import My_paddzero
+from src.my_paddzero import my_paddzero
 from src.initial_class_kmean_sub import initial_class_kmean_sub
 from src.plot_class_hist import plot_class_hist
 from src.local_class_kmean_sub import local_class_kmean_sub
@@ -34,7 +34,7 @@ def main_classification(new_model, Dsetvol):
     Xi, Yi, Zi = np.meshgrid(xxi, yyi, zzi)
     Dsetvol = interpn(points, Dsetvol,(Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
     
-    FinalVol = My_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
+    FinalVol = my_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
     FinalVol_single = FinalVol.astype(np.single)
 
     # Apply global k-mean classification on the reconstruction

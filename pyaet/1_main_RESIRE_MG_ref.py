@@ -1,4 +1,6 @@
-from RESIRE_Reconstructor.RESIRE_Reconstructor import RESIRE_Reconstructor as rr
+import numpy as np
+from pyaet.resire import RESIRE_Reconstructor
+from pyaet.resire.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
 import sys
@@ -6,13 +8,13 @@ sys.path.append('src/')
 sys.path.append('src/splinterp/')
 
 # Define file paths
-pj_filename = 'input/Projections.mat'
-angle_filename = 'input/Angles.mat'
-results_filename = 'output/RESIRE_experiment_result.mat'
+angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Angles.npy'
+pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Projections.npy'
+results_filename = 'output/RESIRE_experiment_result'
 
 # Create an instance of the RESIRE_Reconstructor class
-RESIRE = rr()
- 
+RESIRE = RESIRE_Reconstructor.RESIRE_Reconstructor()
+
 # Set parameters
 RESIRE.filename_Projections = pj_filename
 RESIRE.filename_Angles = angle_filename
@@ -20,31 +22,32 @@ RESIRE.filename_Results = results_filename
 
 RESIRE.set_parameters(
     oversamplingRatio=4,
-    numIterations=200,
+    numIterations=5, #200
     monitor_R=True,
-    monitorR_loopLength=20,
+    monitorR_loopLength=2, #20
     griddingMethod=1,
     vector3=[1, 0, 0],
     use_parallel=1
 )
 
-# Read files (assuming you have appropriate functions for file reading)
-RESIRE = rr.readFiles(RESIRE)
+# Read files
+RESIRE.readFiles()
 
-# Check and prepare data (assuming you have appropriate functions for this)
-RESIRE = rr.CheckPrepareData(RESIRE)
+# Check and prepare data
+RESIRE.CheckPrepareData()
 
-# Run gridding (assuming you have appropriate functions for this)
-RESIRE = rr.runGridding(RESIRE)
+# Run gridding
+RESIRE.runGridding()
 
-# Reconstruct (assuming you have appropriate functions for this)
-RESIRE = rr.reconstruct(RESIRE)
+# Reconstruct
+reconstruct(RESIRE)
 
 # Clear calculation variables
-RESIRE = rr.ClearCalcVariables(RESIRE)
+# RESIRE.ClearCalcVariables()
 
 # Get the reconstruction result
 Reconstruction = RESIRE.reconstruction
 
-# Save results (assuming you have appropriate functions for saving)
-rr.SaveResults(RESIRE)
+# Save results
+np.save('reconstruction_volume.npy', Reconstruction)
+RESIRE.SaveResults()

@@ -1,6 +1,6 @@
 import numpy as np
 
-def My_stripzero(PadVol, orisize):
+def my_stripzero(PadVol, orisize):
     """
     Remove zero padding from the input array to match the specified size.
 
@@ -16,7 +16,7 @@ def My_stripzero(PadVol, orisize):
                 or if orisize is larger than PadVol in any dimension.
 
     Example:
-    >>> stripped_array = My_stripzero(padded_array, (32, 32, 32))
+    stripped_array = my_stripzero(padded_array, (32, 32, 32))
     """
     if len(PadVol.shape) != len(orisize):
         raise ValueError("Input volume dimension and padded size length do not match!")
