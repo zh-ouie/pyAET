@@ -7,6 +7,17 @@ from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 
 def main_classification(new_model, Dsetvol, output_fn):
+    """
+    The main classification function.
+
+    Args:
+        new_model (numpy.ndarray): Atomic positions, in the shape of (3, 18356).
+        Dsetvol (numpy.ndarray): Reconstructed volume, in the shape of (300, 300, 300).
+        output_fn (str): The output .npy filename, Ex: 'localC_res.npy'.
+
+    Returns:
+        Atom types after classification. In the shape of (18356,)
+    """
     # Load traced atomic positions and reconstruction volume
     # new_model = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/traced_model_inPixel.npy')  # ,allow_pickle=True
     # Dsetvol = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
