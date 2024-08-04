@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.cluster import KMeans
-from src.get_box_intensity import get_box_intensity
+from pyaet.src.get_box_intensity import get_box_intensity
+import matplotlib.pyplot as plt
+
 
 def initial_class_kmean_sub(rec, curr_model, classify_info):
     """
@@ -15,57 +17,34 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
     - temp_model (numpy.ndarray): Updated atomic positions.
     - temp_atomtype (numpy.ndarray): Atom types.
     """
+    lnorm = classify_info.get('lnorm', 2)
+    Num_species = classify_info.get('Num_species', 3)
+    halfSize = classify_info.get('halfSize', 1)
+    plothalfSize = classify_info.get('plothalfSize', 4)
+    separate_part = classify_info.get('separate_part', 70)
+    O_Ratio = classify_info.get('O_Ratio', 1)
+    SPHyn = classify_info.get('SPHyn', True)
+    PLOT_YN = classify_info.get('PLOT_YN', False)
 
-    if 'lnorm' in classify_info:
-        lnorm = classify_info['lnorm']
-    else:
-        lnorm = 2
-
-    if 'Num_species' in classify_info:
-        Num_species = classify_info['Num_species']
-    else:
-        Num_species = 3
-
-    if 'halfSize' in classify_info:
-        halfSize = classify_info['halfSize']
-    else:
-        halfSize = 1
-
-    if 'plothalfSize' in classify_info:
-        plothalfSize = classify_info['plothalfSize']
-    else:
-        plothalfSize = 4
-
-    if 'separate_part' in classify_info:
-        separate_part = classify_info['separate_part']
-    else:
-        separate_part = 70
-
-    if 'O_Ratio' in classify_info:
-        O_Ratio = classify_info['O_Ratio']
-    else:
-        O_Ratio = 1
-
-    if 'SPHyn' in classify_info:
-        SPHyn = classify_info['SPHyn']
-    else:
-        SPHyn = 1
-
-    if 'PLOT_YN' in classify_info:
-        PLOT_YN = classify_info['PLOT_YN']
-    else:
-        PLOT_YN = 0
 
     # Generate points of intensities
     box_inten = get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, 'linear')
     box_inten_plot = get_box_intensity(rec, curr_model, plothalfSize, O_Ratio, SPHyn, 'linear')
 
     # K-means clustering
+    # if lnorm == 2:
+    #     kmeans = KMeans(n_clusters=Num_species, init='k-means++', n_init=10, random_state=0)
+    #     idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
+    # elif lnorm == 1:
+    #     kmeans = KMeans(n_clusters=Num_species, init='k-means++', n_init=10, random_state=0)
+    #     idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
+    #todo: find a method argument to be similar in matlab's Kmeans for lnorm=1 and 2.
+
     if lnorm == 2:
-        kmeans = KMeans(n_clusters=Num_species, init='k-means++', n_init=10, random_state=0)
+        kmeans = KMeans(n_clusters=Num_species)
         idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
     elif lnorm == 1:
-        kmeans = KMeans(n_clusters=Num_species, init='k-means++', n_init=10, random_state=0)
+        kmeans = KMeans(n_clusters=Num_species)
         idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
 
     # Alignment clustered type into correct species order
@@ -80,7 +59,6 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
 
     # Plot histogram
     if PLOT_YN:
-        import matplotlib.pyplot as plt
         plt.figure(203)
         plt.clf()
         plt.figure(figsize=(4, 9))
@@ -101,7 +79,7 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
             plt.xlabel('integrated intensity (a.u.)')
             plt.ylabel('# atoms')
             plt.ylim([0, y_up])
-            plt.xlim([0, np.ceil(np.max(np.sum(box_inten_plot, axis=0)) / 5) * 5])
+            # plt.xlim([0, np.ceil(np.max(np.sum(box_inten_plot, axis=0)) / 5) * 5])
 
         plt.show()
     else:

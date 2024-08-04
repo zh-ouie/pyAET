@@ -1,27 +1,24 @@
 import numpy as np
 from scipy.interpolate import interpn
-from src.my_paddzero import my_paddzero
-from src.initial_class_kmean_sub import initial_class_kmean_sub
-from src.plot_class_hist import plot_class_hist
-from src.local_class_kmean_sub import local_class_kmean_sub
+from pyaet.src.my_paddzero import my_paddzero
+from pyaet.src.initial_class_kmean_sub import initial_class_kmean_sub
+from pyaet.src.plot_class_hist import plot_class_hist
+from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
+from pyaet.src.my_round import my_round_num
 
-def main_classification(new_model, Dsetvol):
+def main_classification(new_model, Dsetvol, output_fn):
     # Load traced atomic positions and reconstruction volume
-    # new_model = np.load('traced_model_inPixel.npy')
-    # Dsetvol = np.load('MG_reconstruction_volume.npy')
+    # new_model = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/traced_model_inPixel.npy')  # ,allow_pickle=True
+    # Dsetvol = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
+
+    # new_model = new_model_full[:,2000:5000]
+    # Dsetvol = Dsetvol_full[199:230,199:230,199:230]
+
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
-    if Dsetvol.shape[0] % 2 == 0:
-        xx = np.arange(Dsetvol.shape[0]) - int(Dsetvol.shape[0] / 2)
-    else:
-        xx = np.arange(Dsetvol.shape[0]) - int((Dsetvol.shape[0] - 1) / 2)
-    if Dsetvol.shape[1] % 2 == 0:
-        yy = np.arange(Dsetvol.shape[1]) - int(Dsetvol.shape[1] / 2)
-    else:
-        yy = np.arange(Dsetvol.shape[1]) - int((Dsetvol.shape[1] - 1) / 2)
-    if Dsetvol.shape[2] % 2 == 0:
-        zz = np.arange(Dsetvol.shape[2]) - int(Dsetvol.shape[2] / 2)
-    else:
-        zz = np.arange(Dsetvol.shape[2]) - int((Dsetvol.shape[2] - 1) / 2)
+    xx = np.arange(Dsetvol.shape[0]) - my_round_num((Dsetvol.shape[0]+1)/2) + 1
+    yy = np.arange(Dsetvol.shape[1]) - my_round_num((Dsetvol.shape[1]+1)/2) + 1
+    zz = np.arange(Dsetvol.shape[2]) - my_round_num((Dsetvol.shape[2]+1)/2) + 1
+
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
@@ -31,11 +28,20 @@ def main_classification(new_model, Dsetvol):
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
     points=(xx, yy, zz)
-    Xi, Yi, Zi = np.meshgrid(xxi, yyi, zzi)
+    # Xi, Yi, Zi = np.meshgrid(xxi, yyi, zzi)
+
+    # in matlab: [Yi,Xi,Zi] = meshgrid(yyi,xxi,zzi);
+    #matlab  python
+    # Xi     Yi
+    # Yi     Xi
+    # Zi     Zi
+    Yi, Xi, Zi = np.meshgrid(xxi, yyi, zzi)
+
     Dsetvol = interpn(points, Dsetvol,(Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
-    
+
     FinalVol = my_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
     FinalVol_single = FinalVol.astype(np.single)
+    # check data by FinalVol_single[:,:,50]
 
     # Apply global k-mean classification on the reconstruction
     classify_info = {
@@ -43,8 +49,8 @@ def main_classification(new_model, Dsetvol):
         'halfSize': 3,
         'plothalfSize': 1,
         'O_Ratio': 1,
-        'SPHyn': 1,
-        'PLOT_YN': 1,
+        'SPHyn': True,
+        'PLOT_YN': False,
         'separate_part': 70
     }
 
@@ -57,7 +63,7 @@ def main_classification(new_model, Dsetvol):
 
     # Apply function 'plot_class_hist()' to achieve the histogram information 'peak_info_global_classification'
     # Please see the descriptions in subfunction to get more details
-    peak_info_global_classification = plot_class_hist(
+    peak_info_global_classfication,_ = plot_class_hist(
         FinalVol_single, atom_model, global_class_atomtype, classify_info)
 
     # Apply local k-mean classification on the reconstruction by the results of global k-mean
@@ -72,12 +78,12 @@ def main_classification(new_model, Dsetvol):
 
     # Apply function 'plot_class_hist()' to achieve the histogram information 'peak_info_local_classification'
     # Please see the descriptions in subfunction to get more details
-    peak_info_local_classification = plot_class_hist(
+    peak_info_local_classification, _ = plot_class_hist(
         FinalVol_single, atom_model, local_class_atomtype, classify_info)
 
     # Save 'local_atomtype' to a file or process it further
-    np.save('output/localC_res.npy', local_class_atomtype)
-
+    np.save(output_fn, local_class_atomtype)
+    return
 '''
 #use the following code to get npy version of data:
 import scipy
@@ -89,6 +95,6 @@ data = mat['final_Rec']
 np.save('MG_reconstruction_volume.npy', data)
 '''
 
-newmodel = np.load('traced_model_inPixel.npy',allow_pickle=True)
-Dsetvol = np.load('MG_reconstruction_volume.npy')
-main_classification(newmodel, Dsetvol)
+new_model = np.load('input/traced_model_inPixel.npy') #,allow_pickle=True
+Dsetvol = np.load('input/MG_reconstruction_volume.npy')
+main_classification(new_model, Dsetvol, output_fn='localC_res.npy')

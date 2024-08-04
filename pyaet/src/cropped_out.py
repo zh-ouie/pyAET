@@ -49,7 +49,3 @@ pj_cal=data['pj_cal']
 dimx=data['dimx']
 dimy=data['dimy']
 Num_pj=data['Num_pj']
-
-print(pj_cal)
-print(dimx)
-print(dimy)
