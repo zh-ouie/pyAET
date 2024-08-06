@@ -13,5 +13,5 @@ def my_ifft(k):
     Example:
         ifft_result = my_ifft(fft_result)
     """
-    realout = np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(k)))
+    realout = np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(k)))
     return realout

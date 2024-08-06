@@ -4,7 +4,7 @@ from src.my_fft import my_fft
 from src.make_fixedfa_man import make_fixedfa_man
 from src.MatrixQuaternionRot import MatrixQuaternionRot
 
-def cal_bproj_2type(para, xdata, ydata):
+def old_cal_Bproj_2type(para, xdata, ydata):
     Z_arr = xdata['Z_arr']
     Res = xdata['Res']
     halfWidth = xdata['halfWidth']
@@ -26,9 +26,9 @@ def cal_bproj_2type(para, xdata, ydata):
     Z_rot = np.zeros((num_pj, num_atom), dtype=dtype)
 
     for i in range(num_pj):
-        R1 = MatrixQuaternionRot([0, 0, 1], angles[i, 0])
-        R2 = MatrixQuaternionRot([0, 1, 0], angles[i, 1])
-        R3 = MatrixQuaternionRot([1, 0, 0], angles[i, 2])
+        R1 = matrix_quaternion_rot([0, 0, 1], angles[i, 0])
+        R2 = matrix_quaternion_rot([0, 1, 0], angles[i, 1])
+        R3 = matrix_quaternion_rot([1, 0, 0], angles[i, 2])
         R = (np.dot(np.dot(R1, R2), R3)).T
 
         rotCoords = np.dot(R, model)
