@@ -51,7 +51,7 @@ def get_box_intensity_old(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type
     Parameters:
     - rec (numpy.ndarray): Reconstruction volume.
     - curr_model (numpy.ndarray): Current atomic positions as [X, Y, Z].
-    - halfSize (float): Half-size of the box.
+    - half_size (float): Half-size of the box.
     - O_Ratio (float): Oversampling ratio.
     - SPHyn (bool): Flag to use spherical region.
     - interp_type (str): Interpolation type ('linear' or other).

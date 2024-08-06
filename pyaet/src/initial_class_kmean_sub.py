@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 def initial_class_kmean_sub(rec, curr_model, classify_info):
     """
     Perform k-means classification among real-atoms.
+    Only classify among real-atoms
 
     Parameters:
     - rec (numpy.ndarray): Reconstruction volume.
@@ -19,7 +20,7 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
     """
     lnorm = classify_info.get('lnorm', 2)
     Num_species = classify_info.get('Num_species', 3)
-    halfSize = classify_info.get('halfSize', 1)
+    half_size = classify_info.get('half_size', 1)
     plothalfSize = classify_info.get('plothalfSize', 4)
     separate_part = classify_info.get('separate_part', 70)
     O_Ratio = classify_info.get('O_Ratio', 1)
@@ -28,7 +29,7 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
 
 
     # Generate points of intensities
-    box_inten = get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, 'linear')
+    box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
     box_inten_plot = get_box_intensity(rec, curr_model, plothalfSize, O_Ratio, SPHyn, 'linear')
 
     # K-means clustering
@@ -71,7 +72,7 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
             plt.subplot(Num_species + 1, 1, i + 1)
             if i == 0:
                 plt.hist(np.sum(box_inten_plot, axis=0), bins=separate_part)
-                plt.title(f'boxsize {2 * halfSize + 1}')
+                plt.title(f'boxsize {2 * half_size + 1}')
             else:
                 intensity_integ_sub = np.sum(box_inten_plot[:, idx == i - 1], axis=0)
                 plt.hist(intensity_integ_sub, bins=cen_integ_total_plot)

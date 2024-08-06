@@ -22,6 +22,5 @@ def strel3d(sesize):
     x, y, z = np.meshgrid(np.arange(-sw, sw + 1), np.arange(-sw, sw + 1), np.arange(-sw, sw + 1))
     m = np.sqrt(x**2 + y**2 + z**2)
     b = (m <= m[ses2-1, ses2-1, sesize-1])
-    se = ndi.generate_binary_structure(3, 1)
-    se[~b] = 0
+    se = np.where(b, 1, 0)
     return se
