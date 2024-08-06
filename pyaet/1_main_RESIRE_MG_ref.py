@@ -10,7 +10,7 @@ sys.path.append('src/splinterp/')
 # Define file paths
 angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Angles.npy'
 pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Projections.npy'
-results_filename = 'output/RESIRE_experiment_result'
+results_filename = 'output/RESIRE_experiment_result_full'
 
 # Create an instance of the RESIRE_Reconstructor class
 RESIRE = RESIRE_Reconstructor.RESIRE_Reconstructor()
@@ -49,5 +49,5 @@ reconstruct(RESIRE)
 Reconstruction = RESIRE.reconstruction
 
 # Save results
-np.save('reconstruction_volume.npy', Reconstruction)
+np.save('reconstruction_volume_full.npy', Reconstruction)
 RESIRE.SaveResults()

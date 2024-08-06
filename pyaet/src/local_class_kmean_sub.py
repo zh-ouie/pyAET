@@ -18,13 +18,13 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
 
     lnorm = classify_info.get('lnorm', 2)
     StopCri = classify_info.get('StopCri', 5)
-    halfSize = classify_info.get('halfSize', 1)
+    half_size = classify_info.get('half_size', 1)
     O_Ratio = classify_info.get('O_Ratio', 1)
     Radius = classify_info.get('Radius', 15)
     SPHyn = classify_info.get('SPHyn', True)
 
 
-    box_inten = get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, 'linear')
+    box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
 
     #Long: Note that in matlab, we label atom type from 1, but in python, we start from 0.
     num_types = len(np.unique(curr_types))

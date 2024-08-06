@@ -6,19 +6,22 @@ from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 
-def main_classification(new_model, Dsetvol, output_fn):
+def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
     """
     The main classification function.
 
     Args:
-        new_model (numpy.ndarray): Atomic positions, in the shape of (3, 18356).
-        Dsetvol (numpy.ndarray): Reconstructed volume, in the shape of (300, 300, 300).
+        new_model_file_path (str): File path. Atomic positions, in the shape of (3, 18356).
+        Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
         output_fn (str): The output .npy filename, Ex: 'localC_res.npy'.
 
     Returns:
         Atom types after classification. In the shape of (18356,)
     """
     # Load traced atomic positions and reconstruction volume
+    new_model = np.load(new_model_file_path)  # ,allow_pickle=True
+    Dsetvol = np.load(Dsetvol_file_path)
+
     # new_model = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/traced_model_inPixel.npy')  # ,allow_pickle=True
     # Dsetvol = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
 
@@ -48,17 +51,17 @@ def main_classification(new_model, Dsetvol, output_fn):
     # Zi     Zi
     Yi, Xi, Zi = np.meshgrid(xxi, yyi, zzi)
 
-    Dsetvol = interpn(points, Dsetvol,(Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
+    Dsetvol = interpn(points, Dsetvol, (Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
 
-    FinalVol = my_paddzero(Dsetvol, (Dsetvol.shape[0] + 20, Dsetvol.shape[1] + 20, Dsetvol.shape[2] + 20))
+    FinalVol = my_paddzero(Dsetvol, np.array(Dsetvol.shape) + 20)
     FinalVol_single = FinalVol.astype(np.single)
     # check data by FinalVol_single[:,:,50]
 
     # Apply global k-mean classification on the reconstruction
     classify_info = {
         'Num_species': 3,
-        'halfSize': 3,
-        'plothalfSize': 1,
+        'half_size': 3,
+        'plot_half_size': 1,
         'O_Ratio': 1,
         'SPHyn': True,
         'PLOT_YN': False,
@@ -95,6 +98,7 @@ def main_classification(new_model, Dsetvol, output_fn):
     # Save 'local_atomtype' to a file or process it further
     np.save(output_fn, local_class_atomtype)
     return
+
 '''
 #use the following code to get npy version of data:
 import scipy
@@ -106,6 +110,8 @@ data = mat['final_Rec']
 np.save('MG_reconstruction_volume.npy', data)
 '''
 
-new_model = np.load('input/traced_model_inPixel.npy') #,allow_pickle=True
-Dsetvol = np.load('input/MG_reconstruction_volume.npy')
-main_classification(new_model, Dsetvol, output_fn='localC_res.npy')
+# new_model = np.load('input/traced_model_inPixel.npy') #,allow_pickle=True
+# Dsetvol = np.load('input/MG_reconstruction_volume.npy')
+new_model_file_path = 'input/traced_model_inPixel.npy'
+Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
+main_classification(new_model_file_path, Dsetvol_file_path, output_fn='localC_res.npy')

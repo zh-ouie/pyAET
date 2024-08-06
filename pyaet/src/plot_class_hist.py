@@ -32,7 +32,7 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
     SPHyn=classify_info.get('SPHyn',True)
     separate_part=classify_info.get('separate_part',100)
     PLOT_YN=classify_info.get('PLOT_YN',False)
-    halfSize=classify_info.get('halfSize',3)
+    halfSize=classify_info.get('half_size',3)
 
 
 
