@@ -21,33 +21,33 @@ RESIRE.filename_Angles = angle_filename
 RESIRE.filename_Results = results_filename
 
 RESIRE.set_parameters(
-    oversamplingRatio=4,
-    numIterations=5, #200
+    oversampling_ratio=4,
+    num_iterations=5, #200
     monitor_R=True,
     monitorR_loopLength=2, #20
-    griddingMethod=1,
+    gridding_method=1,
     vector3=[1, 0, 0],
-    use_parallel=1
+    use_parallel=True
 )
 
 # Read files
-RESIRE.readFiles()
+RESIRE.read_files()
 
 # Check and prepare data
-RESIRE.CheckPrepareData()
+RESIRE.check_prepare_data()
 
 # Run gridding
-RESIRE.runGridding()
+RESIRE.run_gridding()
 
 # Reconstruct
 reconstruct(RESIRE)
 
 # Clear calculation variables
-# RESIRE.ClearCalcVariables()
+# RESIRE.clear_calc_variables()
 
 # Get the reconstruction result
 Reconstruction = RESIRE.reconstruction
 
 # Save results
 np.save('reconstruction_volume_full.npy', Reconstruction)
-RESIRE.SaveResults()
+RESIRE.save_results()

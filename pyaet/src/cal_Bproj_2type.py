@@ -98,4 +98,5 @@ def cal_Bproj_2type(para, xdata, ydata, fit_flag=True):
 
     param = np.vstack([k * h, (np.pi * Res) ** 2 / b])
 
-    return projs, param.flatten() #long edit
+    # return projs, param.flatten() #long edit
+    return projs, param #long edit

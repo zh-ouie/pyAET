@@ -2,21 +2,36 @@ import numpy as np
 from scipy.interpolate import interpn
 from pyaet.splinterp_v5.pyyyyaet.splinterp3 import mexFunction3
 
-def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
+def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='linear'):
+    """
+    Calculate the intensity values for points within a box around atomic positions.
+
+    Args:
+    - rec (numpy.ndarray): Reconstruction volume.
+    - curr_model (numpy.ndarray): Current atomic positions as [X, Y, Z].
+    - half_size (float): Half-size of the box.
+    - O_Ratio (float): Oversampling ratio.
+    - SPHyn (bool): Flag to use spherical region.
+    - interp_type (str): Interpolation type ('linear' or other). Default='linear'.
+
+    Returns:
+    - points (numpy.ndarray): Intensity values for points within the box.
+
+    """
     Num_atom = curr_model.shape[1]
 
     # obtain global intensity histogram
     ds = 1 / O_Ratio
 
-    XX, YY, ZZ = np.meshgrid(np.arange(-halfSize, halfSize + ds, ds),
-                            np.arange(-halfSize, halfSize + ds, ds),
-                            np.arange(-halfSize, halfSize + ds, ds))
+    XX, YY, ZZ = np.meshgrid(np.arange(-half_size, half_size + ds, ds),
+                             np.arange(-half_size, half_size + ds, ds),
+                             np.arange(-half_size, half_size + ds, ds))
     XX=np.transpose(XX, (1,0,2))
     YY=np.transpose(YY, (1,0,2))
     ZZ=np.transpose(ZZ, (1,0,2))
 
     if SPHyn:
-        useInd = np.where(((XX**2 + YY**2 + ZZ**2) <= (halfSize + 0.5*ds)**2).flatten())[0]
+        useInd = np.where(((XX**2 + YY**2 + ZZ**2) <= (half_size + 0.5 * ds) ** 2).flatten())[0]
     else:
         useInd = np.arange(len(XX))
 
@@ -39,7 +54,18 @@ def get_box_intensity(rec, curr_model, halfSize, O_Ratio, SPHyn, interp_type):
         x_set[:, k] = XX_use + curr_model[0, k]
         z_set[:, k] = ZZ_use + curr_model[2, k]
 
-    points = mexFunction3(rec, x_set, y_set, z_set)
+    if interp_type == 'linear':
+        points = mexFunction3(rec, x_set, y_set, z_set)
+    else:
+        #todo: check.
+        points1 = (XX_use, YY_use, ZZ_use)
+
+        points2 = np.array([x_set, y_set, z_set]).T
+
+        # Yi, Xi, Zi = np.meshgrid(x_set, y_set, z_set)
+        # points2 = (Xi, Yi, Zi)
+
+        points = interpn(points1, rec, points2, method=interp_type, bounds_error=False, fill_value=0)
 
     return points
 

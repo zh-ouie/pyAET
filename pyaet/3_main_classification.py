@@ -19,12 +19,14 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
         Atom types after classification. In the shape of (18356,)
     """
     # Load traced atomic positions and reconstruction volume
-    new_model = np.load(new_model_file_path)  # ,allow_pickle=True
+    new_model = np.load(new_model_file_path)
     Dsetvol = np.load(Dsetvol_file_path)
 
     # new_model = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/traced_model_inPixel.npy')  # ,allow_pickle=True
     # Dsetvol = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
 
+    # new_model_full = np.load(new_model_file_path)  # ,allow_pickle=True
+    # Dsetvol_full = np.load(Dsetvol_file_path)
     # new_model = new_model_full[:,2000:5000]
     # Dsetvol = Dsetvol_full[199:230,199:230,199:230]
 
@@ -32,7 +34,6 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
     xx = np.arange(Dsetvol.shape[0]) - my_round_num((Dsetvol.shape[0]+1)/2) + 1
     yy = np.arange(Dsetvol.shape[1]) - my_round_num((Dsetvol.shape[1]+1)/2) + 1
     zz = np.arange(Dsetvol.shape[2]) - my_round_num((Dsetvol.shape[2]+1)/2) + 1
-
 
     xxi = np.arange(3 * xx[0], xx[-1] * 3 + 1) / 3
     yyi = np.arange(3 * yy[0], yy[-1] * 3 + 1) / 3
@@ -59,7 +60,7 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
 
     # Apply global k-mean classification on the reconstruction
     classify_info = {
-        'Num_species': 3,
+        'num_species': 3,
         'half_size': 3,
         'plot_half_size': 1,
         'O_Ratio': 1,
@@ -76,8 +77,7 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
         FinalVol_single, new_model_L, classify_info)
 
     # Apply function 'plot_class_hist()' to achieve the histogram information 'peak_info_global_classification'
-    # Please see the descriptions in subfunction to get more details
-    peak_info_global_classfication,_ = plot_class_hist(
+    peak_info_global_classfication, _ = plot_class_hist(
         FinalVol_single, atom_model, global_class_atomtype, classify_info)
 
     # Apply local k-mean classification on the reconstruction by the results of global k-mean
@@ -97,6 +97,7 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
 
     # Save 'local_atomtype' to a file or process it further
     np.save(output_fn, local_class_atomtype)
+    print("classification finished.")
     return
 
 '''

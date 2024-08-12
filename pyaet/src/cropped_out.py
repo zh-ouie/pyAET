@@ -22,30 +22,22 @@ def cropped_out(large_array, crop_size):
     if len(crop_size) == 1:
         crop_size = np.repeat(crop_size, len(n), axis=0)  #todo: check
 
-    cropVec = []
+    crop_vec = []
     for ii in range(len(n)):
         vec = np.arange(1, crop_size[ii] + 1)
         # cropC = np.round((crop_size[ii] + 1) / 2).astype(int)
         cropC = my_round_num((crop_size[ii] + 1) / 2)
-        cropVec.append(vec - cropC + nc[ii])
+        crop_vec.append(vec - cropC + nc[ii])
 
     if len(n) == 2:
-        # ROI = large_array[cropVec[0]-1, cropVec[1]-1]
-        ROI = large_array[cropVec[0] - 1, :]
-        ROI = ROI[:, cropVec[1] - 1]
+        # ROI = large_array[crop_vec[0]-1, crop_vec[1]-1]
+        ROI = large_array[crop_vec[0] - 1, :]
+        ROI = ROI[:, crop_vec[1] - 1]
     elif len(n) == 3:
-        # ROI = large_array[cropVec[0] - 1, cropVec[1] - 1, cropVec[2] - 1]
+        # ROI = large_array[crop_vec[0] - 1, crop_vec[1] - 1, crop_vec[2] - 1]
         #cannot cut at the same time, so instead, cut dimension by dimension.
-        ROI = large_array[cropVec[0] - 1, :, :]
-        ROI = ROI[:, cropVec[1] - 1, :]
-        ROI = ROI[:, :, cropVec[2] - 1]
+        ROI = large_array[crop_vec[0] - 1, :, :]
+        ROI = ROI[:, crop_vec[1] - 1, :]
+        ROI = ROI[:, :, crop_vec[2] - 1]
 
     return ROI
-
-
-data = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/test_cropped_out.npz')
-
-pj_cal=data['pj_cal']
-dimx=data['dimx']
-dimy=data['dimy']
-Num_pj=data['Num_pj']

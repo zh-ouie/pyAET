@@ -1,7 +1,5 @@
 import numpy as np
-#import cv2
 from scipy.interpolate import interpn
-from scipy.ndimage import label, generate_binary_structure
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist
@@ -12,6 +10,7 @@ from pyaet.src.my_round import my_round_num
 from pyaet.src.calculate_3D_polynomial_Rogers import calculate_3D_polynomial_Rogers
 from pyaet.src.calc_dX_dY_dZ_Rogers import calc_dX_dY_dZ_Rogers
 from pyaet.src.initial_class_kmean import initial_class_kmean
+
 
 def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     """
@@ -33,10 +32,11 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     # addpath('../3_Final_reconstruction_volume/') ;
 
     # Read in files: reconstruction volume
-    Dsetvol_full = np.load(Dsetvol_file_path)  # Assuming it's a numpy file
+    Dsetvol = np.load(Dsetvol_file_path)
 
-    Dsetvol_full = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
-    Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
+    # Dsetvol_full = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
+    # Dsetvol_full = np.load(Dsetvol_file_path)
+    # Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
 
     # Constants
     max_iter = 14
@@ -59,23 +59,23 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
 
-    points=(xx, yy, zz)
+    points = (xx, yy, zz)
     Yi, Xi, Zi = np.meshgrid(xxi, yyi, zzi)
     
-    Dsetvol = interpn(points, Dsetvol, (Xi,Yi,Zi), method='cubic', bounds_error=False, fill_value=0)
+    Dsetvol = interpn(points, Dsetvol, (Xi, Yi, Zi), method='cubic', bounds_error=False, fill_value=0)
     FinalVol = my_paddzero(Dsetvol, np.array(Dsetvol.shape) + 20)
 
     # Get polynomial power array
-    fitCoeff = []
+    fit_coeff = []
     for i in range(5):
         for j in range(5):
             for k in range(5):
                 if i + j + k <= 4:
                     if max([i, j, k]) == 4:
-                        fitCoeff.append([i, j, k, -1])
+                        fit_coeff.append([i, j, k, -1])
                     else:
-                        fitCoeff.append([i, j, k, 0])
-    fitCoeff = np.array(fitCoeff)
+                        fit_coeff.append([i, j, k, 0])
+    fit_coeff = np.array(fit_coeff)
 
     # Get the local maxima from the reconstruction volume
     se = strel3d(3)
@@ -93,7 +93,7 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
 
     dilatedBW = grey_dilation(FinalVol, footprint=se)
 
-    max_pos = np.where(((FinalVol == dilatedBW) & (FinalVol > Th)).flatten())[0] #todo: still different from matlab. Maybe == is different.
+    max_pos = np.where(((FinalVol == dilatedBW) & (FinalVol > Th)).flatten())[0]  #todo: still different from matlab. Maybe == is different.
     # max_pos = np.where((((FinalVol - dilatedBW) < 1e-7) & (FinalVol > Th)).flatten())[0]
     max_vals = FinalVol.flatten(order='F')[max_pos]
     sort_ind = np.argsort(max_vals)[::-1]
@@ -121,12 +121,12 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     SphereInd = np.where((X**2 + Y**2 + Z**2 <= (search_rad + 0.5)**2).flatten())[0]
     XYZdata = {'X': X.flatten(order='F')[SphereInd], 'Y': Y.flatten(order='F')[SphereInd], 'Z': Z.flatten(order='F')[SphereInd]}
 
-    orders = fitCoeff[:, :3]
+    orders = fit_coeff[:, :3]
     pos_arr = np.zeros_like(max_XYZ, dtype=float)
     tot_pos_arr = np.zeros_like(max_XYZ, dtype=float)
 
     exit_flag_arr = np.zeros(len(max_XYZ), dtype=int)
-    coeff_arr = np.tile(fitCoeff[:, 3], (len(max_XYZ), 1)).T
+    coeff_arr = np.tile(fit_coeff[:, 3], (len(max_XYZ), 1)).T
     coeff_arr = coeff_arr.astype('float')
 
     # Perform the main tracing loop
@@ -195,19 +195,19 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
                     if consec_accum == crit_iter - 1:
                         goodAtomTotPos = tot_pos_arr[:i, :]
                         goodAtomTotPos = goodAtomTotPos[exit_flag_arr[:i] == 0, :]
-                        # Dist = np.sqrt(np.sum(
+                        # dist = np.sqrt(np.sum(
                         #     (goodAtomTotPos - np.tile(pos_arr[i, :] + max_XYZ[i, :], (goodAtomTotPos.shape[0], 1))) ** 2,
                         #     axis=1))
                         # Long change from max_XYZ[i, :] to max_XYZ[i, :] +1
-                        Dist = np.sqrt(np.sum(
+                        dist = np.sqrt(np.sum(
                             (goodAtomTotPos - np.tile(pos_arr[i, :] + max_XYZ[i, :] +1, (goodAtomTotPos.shape[0], 1))) ** 2,
                             axis=1))
-                        if len(Dist)==0: #if empty.
-                            Dist=0
-                        if np.min(Dist, 0) < min_dist:
+                        if len(dist) == 0: #if empty.
+                            dist = 0
+                        if np.min(dist, 0) < min_dist:
                             exit_flag_arr[i] = -3
                         else:
-                            tot_pos_arr[i, :] = pos_arr[i, :] + max_XYZ[i, :] #todo: max_XYZ +1 or not.
+                            tot_pos_arr[i, :] = pos_arr[i, :] + max_XYZ[i, :]  # todo: max_XYZ +1 or not.
                         end_flag = True
                     else:
                         consec_accum += 1
@@ -220,7 +220,7 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     FinalVol_single = FinalVol.astype(np.single)
 
     classify_info = {
-        'Num_species': 3,
+        'num_species': 3,
         'half_size': 3,
         'plot_half_size': 1,
         'O_Ratio': 1,
@@ -264,7 +264,6 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     ind_out2 = np.logical_or.reduce((atom_pos_o[0, :] >= bdl_2, atom_pos_o[1, :] >= bdl_2, atom_pos_o[2, :] >= bdl_2))
     atom_pos_o = np.delete(atom_pos_o, ind_out1 | ind_out2, axis=1)
 
-
     # Add the missing atoms inside tighter support
     temp_pos_arr1 = []
     ind_arr1 = []
@@ -286,7 +285,9 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
 
     temp_pos_arr2 = atom_pos_all[:, ind_arr2]
     np.save(output_fn, temp_pos_arr2)
+    print("tracing finished.")
     return
 
+
 # Call the main function
-main_polynomial_tracing(Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy', output_fn='initial_traced_model.npy')  # Pass the path to your numpy file here
+main_polynomial_tracing(Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy', output_fn='initial_traced_model.npy')

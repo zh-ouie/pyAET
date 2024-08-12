@@ -9,14 +9,14 @@ from pyaet.splinterp_v5.pyyyyaet.splinterp2 import mexFunction2, interp2_real
 
 def reconstruct(obj):
     projections = obj.InputProjections
-    Num_pj = obj.NumProjs
+    num_pj = obj.num_projs
     step_size = obj.step_size
-    dimx = obj.Dim1
-    dimy = obj.Dim2
+    dimx = obj.dim1
+    dimy = obj.dim2
     dtype = obj.dtype
     Rot_x = obj.Rot_x
     Rot_y = obj.Rot_y
-    iterations = obj.numIterations
+    iterations = obj.num_iterations
 
     xj = obj.xj
     yj = obj.yj
@@ -30,15 +30,15 @@ def reconstruct(obj):
     if obj.initial_model == 1:
         rec = obj.Support
         rec_big[ind_V[0, 0]-1:ind_V[0, 1], ind_V[1, 0]-1:ind_V[1, 1], ind_V[2, 0]-1:ind_V[2, 1]] = rec
-    dt = (step_size / Num_pj / dimx)
+    dt = (step_size / num_pj / dimx)
 
     print('RESIRE: Reconstructing... \n\n')
 
     if obj.monitor_R:
         monitorR_loopLength = obj.monitorR_loopLength
         errR_arr = np.zeros(iterations // monitorR_loopLength)
-        Rarr_record = np.zeros((Num_pj, iterations // monitorR_loopLength))
-        Rarr2_record = np.zeros((Num_pj, iterations // monitorR_loopLength))
+        Rarr_record = np.zeros((num_pj, iterations // monitorR_loopLength))
+        Rarr2_record = np.zeros((num_pj, iterations // monitorR_loopLength))
 
     # flag for using parallel calculation
     if obj.use_parallel:
@@ -50,22 +50,22 @@ def reconstruct(obj):
         recK = my_fft(rec_big)
 
         # compute rotated projections via Fourier Slice Theorem
-        # pj_cal = np.zeros((dimy, dimx, Num_pj), dtype=dtype)
-        # for k in range(Num_pj):
+        # pj_cal = np.zeros((dimy, dimx, num_pj), dtype=dtype)
+        # for k in range(num_pj):
         #     pj_cal[:, :, k] = map_coordinates(recK, [yj[:, :, k], xj[:, :, k], zj[:, :, k]], order=1)
         pj_cal = mexFunction3(recK, xj, yj, zj)
         # pj_cal = np.real(my_fftshift(my_ifft2(my_ifftshift(pj_cal))))
         pj_cal = np.real(np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(pj_cal))))
 
-        # np.savez('test_cropped_out.npz', pj_cal=pj_cal, dimx=dimx, dimy=dimy, Num_pj=Num_pj)
+        # np.savez('test_cropped_out.npz', pj_cal=pj_cal, dimx=dimx, dimy=dimy, num_pj=num_pj)
 
-        pj_cal = cropped_out(pj_cal, [dimx, dimy, Num_pj])
+        pj_cal = cropped_out(pj_cal, [dimx, dimy, num_pj])
 
         # compute R factor
         if obj.monitor_R and iter % monitorR_loopLength == 0:
-            Rarr = np.zeros(Num_pj)
-            Rarr2 = np.zeros(Num_pj)
-            for i in range(Num_pj):
+            Rarr = np.zeros(num_pj)
+            Rarr2 = np.zeros(num_pj)
+            for i in range(num_pj):
                 pj = projections[:, :, i]
                 proj_i = pj_cal[:, :, i]
                 Rarr[i] = np.sum(np.abs(proj_i - pj)) / np.sum(np.abs(pj))
@@ -82,7 +82,7 @@ def reconstruct(obj):
 
         # compute gradient & apply gradient descent
         grad = -sum_rot_pjs
-        for k in range(Num_pj):
+        for k in range(num_pj):
             # rot_pj_cal = map_coordinates(pj_cal[:, :, k], [Rot_y[:, :, :, k], Rot_x[:, :, :, k]], order=1)
             rot_pj_cal = mexFunction2(pj_cal[:, :, k], Rot_x[:, :, :, k], Rot_y[:, :, :, k])
             grad = grad + rot_pj_cal
@@ -90,7 +90,7 @@ def reconstruct(obj):
         rec = np.maximum(0, rec)
 
         # flag for saving temporary reconstruction
-        if obj.save_temp == 1 and iter % obj.save_loopLength == 0:
+        if obj.save_temp and iter % obj.save_loopLength == 0:
 
             # check if folder exists, otherwise, create the folder.
             dir_path = os.path.dirname(obj.saveFilename)

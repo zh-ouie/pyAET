@@ -122,4 +122,5 @@ def gradient_B_2type_difB(para, xdata, ydata):
 
     param = np.vstack([k * h, (np.pi * Res) ** 2 / b])
 
-    return projs, param.flatten(), errR
+    # return projs, param.flatten(), errR
+    return projs, param, errR

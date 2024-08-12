@@ -10,13 +10,13 @@ from pyaet.splinterp_v5.pyyyyaet.splinterp2 import mexFunction2, interp2_real
 
 def interp_pj_realspace(obj):
     projections = obj.InputProjections
-    Num_pj = obj.NumProjs
-    dimx = obj.Dim1
-    dimy = obj.Dim2
+    num_pj = obj.num_projs
+    dimx = obj.dim1
+    dimy = obj.dim2
 
-    phiangles = obj.InputAngles[:, 0]
-    thetaangles = obj.InputAngles[:, 1]
-    psiangles = obj.InputAngles[:, 2]
+    phi_angles = obj.InputAngles[:, 0]
+    theta_angles = obj.InputAngles[:, 1]
+    psi_angles = obj.InputAngles[:, 2]
 
     vec1 = obj.vector1
     vec2 = obj.vector2
@@ -43,7 +43,7 @@ def interp_pj_realspace(obj):
     YY = YY.T.flatten()
     ZZ = ZZ.T.flatten()
 
-    rot_pjs = np.zeros((dimy, dimx, dimx, Num_pj), dtype=dtype)
+    rot_pjs = np.zeros((dimy, dimx, dimx, num_pj), dtype=dtype)
 
     # Calculate oversampled grid points for calculating back projections
     ncy_big = my_round_num((n2_oversampled + 1) / 2)
@@ -55,17 +55,17 @@ def interp_pj_realspace(obj):
     Y = Y.T.flatten()
     X = X.T.flatten()
     Z = Z.T.flatten()
-    xj = np.zeros((n2_oversampled, n1_oversampled, Num_pj), dtype=dtype)
-    yj = np.zeros((n2_oversampled, n1_oversampled, Num_pj), dtype=dtype)
-    zj = np.zeros((n2_oversampled, n1_oversampled, Num_pj), dtype=dtype)
+    xj = np.zeros((n2_oversampled, n1_oversampled, num_pj), dtype=dtype)
+    yj = np.zeros((n2_oversampled, n1_oversampled, num_pj), dtype=dtype)
+    zj = np.zeros((n2_oversampled, n1_oversampled, num_pj), dtype=dtype)
 
-    Rot_x = np.zeros((dimy, dimx, dimy, Num_pj), dtype=dtype)
-    Rot_y = np.zeros((dimy, dimx, dimy, Num_pj), dtype=dtype)
+    Rot_x = np.zeros((dimy, dimx, dimy, num_pj), dtype=dtype)
+    Rot_y = np.zeros((dimy, dimx, dimy, num_pj), dtype=dtype)
 
-    for k in range(Num_pj):
-        phi = phiangles[k]
-        theta = thetaangles[k]
-        psi = psiangles[k]
+    for k in range(num_pj):
+        phi = phi_angles[k]
+        theta = theta_angles[k]
+        psi = psi_angles[k]
         pj = projections[:, :, k]
 
         R1 = matrix_quaternion_rot(vec1, phi)
@@ -73,9 +73,9 @@ def interp_pj_realspace(obj):
         R3 = matrix_quaternion_rot(vec3, psi)
         R = (R1 @ R2 @ R3).T
 
-        rotCoords = R[0:2, :] @ np.vstack((XX, YY, ZZ))
-        rot_x = rotCoords[0, :]
-        rot_y = rotCoords[1, :]
+        rot_coords = R[0:2, :] @ np.vstack((XX, YY, ZZ))
+        rot_x = rot_coords[0, :]
+        rot_y = rot_coords[1, :]
         rot_x = np.reshape(rot_x, (dimy, dimx, dimy), order='F') + ncx
         rot_y = np.reshape(rot_y, (dimy, dimx, dimy), order='F') + ncy
         Rot_x[:, :, :, k] = rot_x
@@ -86,10 +86,10 @@ def interp_pj_realspace(obj):
         # rot_pj = map_coordinates(pj, [rot_y, rot_x], order=1) #TODO: use `splinterp2`
         rot_pjs[:, :, :, k] = rot_pj
 
-        rotCoords = R.T @ np.vstack((X, Y, Z))
-        xj[:, :, k] = np.reshape(rotCoords[0, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
-        yj[:, :, k] = np.reshape(rotCoords[1, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
-        zj[:, :, k] = np.reshape(rotCoords[2, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
+        rot_coords = R.T @ np.vstack((X, Y, Z))
+        xj[:, :, k] = np.reshape(rot_coords[0, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
+        yj[:, :, k] = np.reshape(rot_coords[1, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
+        zj[:, :, k] = np.reshape(rot_coords[2, :], (n2_oversampled, n1_oversampled), order='F') + ncy_big
 
     sum_rot_pjs = np.sum(rot_pjs, axis=3)
 

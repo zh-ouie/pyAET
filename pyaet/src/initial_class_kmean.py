@@ -21,7 +21,7 @@ def initial_class_kmean(rec, curr_model, classify_info):
     - temp_atomtype (numpy.ndarray): Atom types.
     """
     lnorm = classify_info.get('lnorm', 2)
-    Num_species = classify_info.get('Num_species', 3)
+    num_species = classify_info.get('num_species', 3)
     half_size = classify_info.get('half_size', 1)
     plot_half_size = classify_info.get('plot_half_size', 4)
     separate_part = classify_info.get('separate_part', 70)
@@ -35,19 +35,19 @@ def initial_class_kmean(rec, curr_model, classify_info):
 
     # K-means clustering for non-atoms and atoms
     if lnorm == 2:
-        kmeans = KMeans(n_clusters=Num_species + 1)
+        kmeans = KMeans(n_clusters=num_species + 1)
         idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
     elif lnorm == 1:
-        kmeans = KMeans(n_clusters=Num_species + 1)
+        kmeans = KMeans(n_clusters=num_species + 1)
         idx = kmeans.fit_predict(np.sum(box_inten, axis=0).reshape(-1, 1))
 
     # Alignment clustered type into correct species order
-    mean_arr = np.zeros(Num_species + 1)
-    for i in range(Num_species + 1):
+    mean_arr = np.zeros(num_species + 1)
+    for i in range(num_species + 1):
         mean_arr[i] = np.mean(np.sum(box_inten[:, idx == i], axis=0))
 
     sortMean = np.argsort(mean_arr)
-    for i in range(Num_species + 1):
+    for i in range(num_species + 1):
         idx[idx == sortMean[i]] = i + 1000
     idx = idx - 1000
 
@@ -60,8 +60,8 @@ def initial_class_kmean(rec, curr_model, classify_info):
         hist_inten_plot, cen_integ_total_plot = np.histogram(np.sum(box_inten_plot, axis=0), bins=separate_part)
         y_up = np.round(np.max(hist_inten_plot) / 10) * 12
 
-        for i in range(Num_species + 2):
-            plt.subplot(Num_species + 2, 1, i + 1)
+        for i in range(num_species + 2):
+            plt.subplot(num_species + 2, 1, i + 1)
             if i == 0:
                 plt.hist(np.sum(box_inten_plot, axis=0), bins=separate_part)
                 plt.title(f'boxsize {2 * half_size + 1}')
@@ -82,7 +82,7 @@ def initial_class_kmean(rec, curr_model, classify_info):
     else:
         print('Rough classification:')
         print(f'number of Non-atoms: {np.sum(idx == 0)}')
-        for i in range(Num_species):
+        for i in range(num_species):
             print(f'number of type {i + 1} atoms: {np.sum(idx == i + 1)}')
         print(f'number of total atoms: {np.sum(idx != 0)}')
 
@@ -102,19 +102,19 @@ def initial_class_kmean(rec, curr_model, classify_info):
 
     # K-means clustering among real-atoms
     if lnorm == 2:
-        kmeans = KMeans(n_clusters=Num_species)
+        kmeans = KMeans(n_clusters=num_species)
         idx = kmeans.fit_predict(np.sum(box_inten_sub, axis=0).reshape(-1, 1))
     elif lnorm == 1:
-        kmeans = KMeans(n_clusters=Num_species)
+        kmeans = KMeans(n_clusters=num_species)
         idx = kmeans.fit_predict(np.sum(box_inten_sub, axis=0).reshape(-1, 1))
 
     # Alignment clustered type into correct species order
-    mean_arr = np.zeros(Num_species, dtype=float)
-    for i in range(Num_species):
+    mean_arr = np.zeros(num_species, dtype=float)
+    for i in range(num_species):
         mean_arr[i] = np.mean(np.sum(box_inten_sub[:, idx == i], axis=0))
 
     sortMean = np.argsort(mean_arr)
-    for i in range(Num_species):
+    for i in range(num_species):
         idx[idx == sortMean[i]] = i + 1000
     idx = idx - 1000
 
@@ -128,8 +128,8 @@ def initial_class_kmean(rec, curr_model, classify_info):
                                                                      bins=separate_part)
         y_up = np.round(np.max(hist_inten_plot_sub) / 10) * 12
 
-        for i in range(Num_species + 1):
-            plt.subplot(Num_species + 1, 1, i + 1)
+        for i in range(num_species + 1):
+            plt.subplot(num_species + 1, 1, i + 1)
             if i == 0:
                 plt.hist(np.sum(box_inten_plot_sub, axis=0), bins=separate_part)
                 plt.title(f'boxsize {2 * half_size + 1}')
@@ -145,7 +145,7 @@ def initial_class_kmean(rec, curr_model, classify_info):
         plt.show()
     else:
         print('Initial classification:')
-        for i in range(Num_species):
+        for i in range(num_species):
             print(f'number of type {i + 1} atoms: {np.sum(idx == i)}') #todo: check
         print(f'number of total atoms: {len(idx)}')
 

@@ -112,6 +112,7 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
     model_refined_res = model_refined
     # savemat('output/model_refined_res.mat', {'model_refined_res': model_refined_res})
     np.save(output_fn, model_refined_res)
+    print("position refinement finished.")
     return
 
 

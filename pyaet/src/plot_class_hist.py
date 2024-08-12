@@ -21,18 +21,18 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
 
     Example:
     classify_info = {
-        'plothalfSize': 4,
+        'plot_half_size': 4,
         'SPHyn': True,
         'separate_part': 100,
         'PLOT_YN': False
     }
     peak_info, intensity_plot_arr = plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info)
     """
-    plothalfSize=classify_info.get('plothalfSize', 4)
-    SPHyn=classify_info.get('SPHyn',True)
-    separate_part=classify_info.get('separate_part',100)
-    PLOT_YN=classify_info.get('PLOT_YN',False)
-    halfSize=classify_info.get('half_size',3)
+    plot_half_size = classify_info.get('plot_half_size', 4)
+    SPHyn = classify_info.get('SPHyn',True)
+    separate_part = classify_info.get('separate_part',100)
+    PLOT_YN = classify_info.get('PLOT_YN',False)
+    halfSize = classify_info.get('half_size',3)
 
 
 
@@ -40,16 +40,16 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
     peak_info = np.zeros((Num_types + 2, separate_part))
 
     xXp, yYp, zZp = np.meshgrid(
-        np.arange(-plothalfSize, plothalfSize + 1),
-        np.arange(-plothalfSize, plothalfSize + 1),
-        np.arange(-plothalfSize, plothalfSize + 1)
+        np.arange(-plot_half_size, plot_half_size + 1),
+        np.arange(-plot_half_size, plot_half_size + 1),
+        np.arange(-plot_half_size, plot_half_size + 1)
     )
 
     xXp = np.transpose(xXp, (1,0,2))
     yYp = np.transpose(yYp, (1,0,2))
     zZp = np.transpose(zZp, (1,0,2))
 
-    SphereInd_plot = np.where(((xXp ** 2 + yYp ** 2 + zZp ** 2) <= (plothalfSize + 0.5) ** 2).flatten())[0]
+    SphereInd_plot = np.where(((xXp ** 2 + yYp ** 2 + zZp ** 2) <= (plot_half_size + 0.5) ** 2).flatten())[0]
 
     if SPHyn:
         useInd_plot = SphereInd_plot
@@ -62,11 +62,11 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
 
     for j in range(temp_model.shape[1]):
         curr_pos = np.round(temp_model[:, j]).astype(int)-1
-        # curr_pos = np.round(curr_pos/10).astype(int)-1 #todo: just for testing small data. delete this line.
+        # curr_pos = np.round(curr_pos/10).astype(int)-1 #todo: when testing small data, use this line. otherwise, delete this line.
         box_integ = RecVol_padded[
-            curr_pos[0] - plothalfSize : curr_pos[0] + plothalfSize + 1,
-            curr_pos[1] - plothalfSize : curr_pos[1] + plothalfSize + 1,
-            curr_pos[2] - plothalfSize : curr_pos[2] + plothalfSize + 1
+            curr_pos[0] - plot_half_size : curr_pos[0] + plot_half_size + 1,
+            curr_pos[1] - plot_half_size : curr_pos[1] + plot_half_size + 1,
+            curr_pos[2] - plot_half_size : curr_pos[2] + plot_half_size + 1
         ]
         intensity_integ_plot[j] = np.sum(box_integ.flatten(order='F')[useInd_plot])
         intensity_plot_arr[:, j] = box_integ.flatten(order='F')[useInd_plot]
