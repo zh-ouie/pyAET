@@ -131,7 +131,6 @@ class RESIRE_Reconstructor:
         for key, value in resire_param.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-                print(key, value)
             else:
                 raise Exception(f'RESIRE: Invalid option {key} provided.')
 

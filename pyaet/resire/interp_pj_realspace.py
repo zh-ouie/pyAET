@@ -6,7 +6,7 @@ from scipy.ndimage import map_coordinates
 #from scipy.interpolate import spl_prep, splev
 from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
 from pyaet.src.my_round import my_round_num
-from pyaet.splinterp_v5.pyyyyaet.splinterp2 import mexFunction2, interp2_real
+from pyaet.splinterp.splinterp2 import mex_function2
 
 def interp_pj_realspace(obj):
     projections = obj.InputProjections
@@ -81,7 +81,7 @@ def interp_pj_realspace(obj):
         Rot_x[:, :, :, k] = rot_x
         Rot_y[:, :, :, k] = rot_y
         # rot_pj = splinterp2(pj, rot_y, rot_x)
-        rot_pj = mexFunction2(pj, rot_y, rot_x)
+        rot_pj = mex_function2(pj, rot_y, rot_x)
         # rot_pj = interp2_real(pj, rot_y, rot_x)
         # rot_pj = map_coordinates(pj, [rot_y, rot_x], order=1) #TODO: use `splinterp2`
         rot_pjs[:, :, :, k] = rot_pj

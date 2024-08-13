@@ -4,8 +4,8 @@ import os
 from pyaet.src.my_volume_index import my_volumn_index
 from pyaet.src.my_fft import my_fft
 from pyaet.src.cropped_out import cropped_out
-from pyaet.splinterp_v5.pyyyyaet.splinterp3 import mexFunction3, interp3_real
-from pyaet.splinterp_v5.pyyyyaet.splinterp2 import mexFunction2, interp2_real
+from pyaet.splinterp.splinterp3 import mex_function3
+from pyaet.splinterp.splinterp2 import mex_function2
 
 def reconstruct(obj):
     projections = obj.InputProjections
@@ -53,7 +53,7 @@ def reconstruct(obj):
         # pj_cal = np.zeros((dimy, dimx, num_pj), dtype=dtype)
         # for k in range(num_pj):
         #     pj_cal[:, :, k] = map_coordinates(recK, [yj[:, :, k], xj[:, :, k], zj[:, :, k]], order=1)
-        pj_cal = mexFunction3(recK, xj, yj, zj)
+        pj_cal = mex_function3(recK, xj, yj, zj)
         # pj_cal = np.real(my_fftshift(my_ifft2(my_ifftshift(pj_cal))))
         pj_cal = np.real(np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(pj_cal))))
 
@@ -84,7 +84,7 @@ def reconstruct(obj):
         grad = -sum_rot_pjs
         for k in range(num_pj):
             # rot_pj_cal = map_coordinates(pj_cal[:, :, k], [Rot_y[:, :, :, k], Rot_x[:, :, :, k]], order=1)
-            rot_pj_cal = mexFunction2(pj_cal[:, :, k], Rot_x[:, :, :, k], Rot_y[:, :, :, k])
+            rot_pj_cal = mex_function2(pj_cal[:, :, k], Rot_x[:, :, :, k], Rot_y[:, :, :, k])
             grad = grad + rot_pj_cal
         rec = rec - dt * grad
         rec = np.maximum(0, rec)

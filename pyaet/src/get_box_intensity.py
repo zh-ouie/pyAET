@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interpn
-from pyaet.splinterp_v5.pyyyyaet.splinterp3 import mexFunction3
+from pyaet.splinterp.splinterp3 import mex_function3
 
 def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='linear'):
     """
@@ -55,7 +55,7 @@ def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='l
         z_set[:, k] = ZZ_use + curr_model[2, k]
 
     if interp_type == 'linear':
-        points = mexFunction3(rec, x_set, y_set, z_set)
+        points = mex_function3(rec, x_set, y_set, z_set)
     else:
         #todo: check.
         points1 = (XX_use, YY_use, ZZ_use)

@@ -3,9 +3,9 @@ from pyaet.resire import RESIRE_Reconstructor
 from pyaet.resire.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
-import sys
-sys.path.append('src/')
-sys.path.append('src/splinterp/')
+# import sys
+# sys.path.append('src/')
+# sys.path.append('src/splinterp/')
 
 # Define file paths
 angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Angles.npy'
@@ -21,13 +21,13 @@ RESIRE.filename_Angles = angle_filename
 RESIRE.filename_Results = results_filename
 
 RESIRE.set_parameters(
-    oversampling_ratio=4,
-    num_iterations=5, #200
-    monitor_R=True,
-    monitorR_loopLength=2, #20
-    gridding_method=1,
-    vector3=[1, 0, 0],
-    use_parallel=True
+    oversampling_ratio = 4,
+    num_iterations = 5, #200
+    monitor_R = True,
+    monitorR_loopLength = 2, #20
+    gridding_method = 1,
+    vector3 = [1, 0, 0],
+    use_parallel = True
 )
 
 # Read files

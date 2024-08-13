@@ -4,9 +4,9 @@ from pyaet.resire import RESIRE_Reconstructor
 from pyaet.resire.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
-import sys
-sys.path.append('src/')
-sys.path.append('src/splinterp/')
+# import sys
+# sys.path.append('src/')
+# sys.path.append('src/splinterp/')
 
 # Define file paths
 pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_projections_amorphous.npy'
@@ -22,15 +22,15 @@ RESIRE.filename_Angles = angle_filename
 RESIRE.filename_Results = results_filename
 
 RESIRE.set_parameters(
-    oversampling_ratio=3,
-    num_iterations=2,
-    monitor_R=True,
-    monitorR_loopLength=1,
-    gridding_method=1,
-    vector3=[1, 0, 0],
-    use_parallel=True,
-    save_temp=True,
-    save_loopLength=1
+    oversampling_ratio = 3,
+    num_iterations = 2,
+    monitor_R = True,
+    monitorR_loopLength = 1,
+    gridding_method = 1,
+    vector3 = [1, 0, 0],
+    use_parallel = True,
+    save_temp = True,
+    save_loopLength = 1
 )
 
 # Read files
