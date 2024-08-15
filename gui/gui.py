@@ -165,40 +165,50 @@ class MyApp(QMainWindow):
         self.class_page = QWidget()
         self.class_layout = QVBoxLayout()
 
-        # 添加文件选择功能
         class_recon_file_layout = QHBoxLayout()
-        class_recon_file_label = QLabel('Input Reconstruction File Path:', self.class_page)
-        class_recon_file_edit = QLineEdit(self.class_page)
-        class_recon_file_button = QPushButton('Browse', self.class_page)
+        class_recon_file_label = QLabel('Input Reconstruction File Path:')
+        class_recon_file_edit = QLineEdit()
+        class_recon_file_button = QPushButton('Browse')
         class_recon_file_button.clicked.connect(lambda _, fe=class_recon_file_edit: self.select_file(fe))
         class_recon_file_layout.addWidget(class_recon_file_label)
         class_recon_file_layout.addWidget(class_recon_file_edit)
         class_recon_file_layout.addWidget(class_recon_file_button)
         self.class_layout.addLayout(class_recon_file_layout)
 
-        # 添加文件选择功能
         class_model_file_layout = QHBoxLayout()
-        class_model_file_label = QLabel('Input Traced Model File Path:', self.class_page)
-        class_model_file_edit = QLineEdit(self.class_page)
-        class_model_file_button = QPushButton('Browse', self.class_page)
+        class_model_file_label = QLabel('Input Atom Model File Path:')
+        class_model_file_edit = QLineEdit()
+        class_model_file_button = QPushButton('Browse')
         class_model_file_button.clicked.connect(lambda _, fe=class_model_file_edit: self.select_file(fe))
         class_model_file_layout.addWidget(class_model_file_label)
         class_model_file_layout.addWidget(class_model_file_edit)
         class_model_file_layout.addWidget(class_model_file_button)
         self.class_layout.addLayout(class_model_file_layout)
 
-        # 添加执行操作的按钮
-        class_run_button = QPushButton('Run3')
-        class_run_button.clicked.connect(
-            lambda _,
-                   class_recon_file_path = class_recon_file_edit.text(),
-                   class_model_file_path = class_model_file_edit.text():
-            self.runPythonCode(class_recon_file_path, class_model_file_path))
-        self.class_layout.addWidget(class_run_button)
+        class_output_layout = QHBoxLayout()
+        class_output_label = QLabel(f'Output filename:')
+        class_output_edit = QLineEdit('output_classification')
+        class_output_layout.addWidget(class_output_label)
+        class_output_layout.addWidget(class_output_edit)
+        self.class_layout.addLayout(class_output_layout)
+
+        self.class_status_label = QLabel("Please click the button below to run atom classification.")
+        self.class_layout.addWidget(self.class_status_label)
+
+        self.class_run_button = QPushButton('Run Atom Classification')
+        self.class_run_button.clicked.connect(lambda:
+            self.class_on_click_run(class_recon_file_edit.text(),
+                                    class_model_file_edit.text(),
+                                    class_output_edit.text())
+                                              )
+        self.class_layout.addWidget(self.class_run_button)
+
+        self.class_thread = None
 
         self.class_page.setLayout(self.class_layout)
         self.stack.addWidget(self.class_page)
         #####################
+
 
         #####################
         # Position Refinement page
@@ -371,12 +381,30 @@ class MyApp(QMainWindow):
 
         self.tracing_thread.finished_signal.connect(self.tracing_on_thread_finished)
         self.tracing_run_button.setDisabled(True)
-        self.tracing_status_label.setText('Start running tracingstruction,  please wait...')
+        self.tracing_status_label.setText('Start running atom tracing,  please wait...')
         self.tracing_thread.start()
 
     def tracing_on_thread_finished(self, result):
         self.tracing_run_button.setDisabled(False)
         self.tracing_status_label.setText(result)
+
+    def class_on_click_run(self, reconstruction_filename, model_filename, output_fn):
+        param = {}
+        param['reconstruction_filename'] = reconstruction_filename
+        param['model_filename'] = model_filename
+        param['output_fn'] = output_fn
+        param['job_type'] = 3 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+
+        self.class_thread = WorkerThread(param)
+
+        self.class_thread.finished_signal.connect(self.class_on_thread_finished)
+        self.class_run_button.setDisabled(True)
+        self.class_status_label.setText('Start running atom classification,  please wait...')
+        self.class_thread.start()
+
+    def class_on_thread_finished(self, result):
+        self.class_run_button.setDisabled(False)
+        self.class_status_label.setText(result)
 
     def run_main_position_refinement(self, projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn):
         main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn)
@@ -407,6 +435,11 @@ class WorkerThread(QThread):
             max_num_th = self.param['max_num_th']
             output_fn = self.param['output_fn']
             main_polynomial_tracing(reconstruction_filename, max_num_th, output_fn)
+        if job_type == 3: #run classification
+            reconstruction_filename = self.param['reconstruction_filename']
+            model_filename = self.param['model_filename']
+            output_fn = self.param['output_fn']
+            main_classification(reconstruction_filename, model_filename, output_fn)
 
         self.finished_signal.emit(result)
 

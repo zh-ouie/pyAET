@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy.interpolate import interpn
 from pyaet.src.my_paddzero import my_paddzero
 from pyaet.src.initial_class_kmean_sub import initial_class_kmean_sub
@@ -6,14 +7,14 @@ from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 
-def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
+def main_classification(Dsetvol_file_path, new_model_file_path, output_fn):
     """
     The main classification function.
 
     Args:
-        new_model_file_path (str): File path. Atomic positions, in the shape of (3, 18356).
         Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
-        output_fn (str): The output .npy filename, Ex: 'localC_res.npy'.
+        new_model_file_path (str): File path. Atomic positions, in the shape of (3, 18356).
+        output_fn (str): The output .npy filename, Ex: 'localC_res'.
 
     Returns:
         Atom types after classification. In the shape of (18356,)
@@ -29,6 +30,8 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
     # Dsetvol_full = np.load(Dsetvol_file_path)
     # new_model = new_model_full[:,2000:5000]
     # Dsetvol = Dsetvol_full[199:230,199:230,199:230]
+
+    output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
     # Upsample the reconstruction matrix by 3*3*3 by linear interpolation
     xx = np.arange(Dsetvol.shape[0]) - my_round_num((Dsetvol.shape[0]+1)/2) + 1
@@ -96,7 +99,7 @@ def main_classification(new_model_file_path, Dsetvol_file_path, output_fn):
         FinalVol_single, atom_model, local_class_atomtype, classify_info)
 
     # Save 'local_atomtype' to a file or process it further
-    np.save(output_fn, local_class_atomtype)
+    np.save(output_file_path+".npy", local_class_atomtype)
     print("classification finished.")
     return
 
@@ -111,8 +114,8 @@ data = mat['final_Rec']
 np.save('MG_reconstruction_volume.npy', data)
 '''
 
-# new_model = np.load('input/traced_model_inPixel.npy') #,allow_pickle=True
-# Dsetvol = np.load('input/MG_reconstruction_volume.npy')
-new_model_file_path = 'input/traced_model_inPixel.npy'
-Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
-main_classification(new_model_file_path, Dsetvol_file_path, output_fn='localC_res.npy')
+
+# new_model_file_path = 'input/traced_model_inPixel.npy'
+# Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
+#
+# main_classification(Dsetvol_file_path, new_model_file_path, output_fn='localC_res')
