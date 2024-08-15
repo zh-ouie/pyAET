@@ -176,7 +176,7 @@ class MyApp(QMainWindow):
         self.class_layout.addLayout(class_recon_file_layout)
 
         class_model_file_layout = QHBoxLayout()
-        class_model_file_label = QLabel('Input Atom Model File Path:')
+        class_model_file_label = QLabel('Input Model File Path:')
         class_model_file_edit = QLineEdit()
         class_model_file_button = QPushButton('Browse')
         class_model_file_button.clicked.connect(lambda _, fe=class_model_file_edit: self.select_file(fe))
@@ -184,6 +184,13 @@ class MyApp(QMainWindow):
         class_model_file_layout.addWidget(class_model_file_edit)
         class_model_file_layout.addWidget(class_model_file_button)
         self.class_layout.addLayout(class_model_file_layout)
+
+        class_param_species_layout = QHBoxLayout()
+        class_param_species_label = QLabel(f'Number of Atom Species:')
+        class_param_species_edit = QLineEdit('3')
+        class_param_species_layout.addWidget(class_param_species_label)
+        class_param_species_layout.addWidget(class_param_species_edit)
+        self.class_layout.addLayout(class_param_species_layout)
 
         class_output_layout = QHBoxLayout()
         class_output_label = QLabel(f'Output filename:')
@@ -199,6 +206,7 @@ class MyApp(QMainWindow):
         self.class_run_button.clicked.connect(lambda:
             self.class_on_click_run(class_recon_file_edit.text(),
                                     class_model_file_edit.text(),
+                                    class_param_species_edit.text(),
                                     class_output_edit.text())
                                               )
         self.class_layout.addWidget(self.class_run_button)
@@ -215,7 +223,6 @@ class MyApp(QMainWindow):
         self.refine_page = QWidget()
         self.refine_layout = QVBoxLayout()
 
-        # 添加文件选择功能
         refine_pj_file_layout = QHBoxLayout()
         refine_pj_file_label = QLabel('Input Projection File Path:')
         refine_pj_file_edit = QLineEdit()
@@ -226,7 +233,6 @@ class MyApp(QMainWindow):
         refine_pj_file_layout.addWidget(refine_pj_file_button)
         self.refine_layout.addLayout(refine_pj_file_layout)
 
-        # 添加文件选择功能
         refine_angle_file_layout = QHBoxLayout()
         refine_angle_file_label = QLabel('Input Angle File Path:')
         refine_angle_file_edit = QLineEdit()
@@ -237,9 +243,8 @@ class MyApp(QMainWindow):
         refine_angle_file_layout.addWidget(refine_angle_file_button)
         self.refine_layout.addLayout(refine_angle_file_layout)
 
-        # 添加文件选择功能
         refine_model_file_layout = QHBoxLayout()
-        refine_model_file_label = QLabel('Input Traced Model File Path:')
+        refine_model_file_label = QLabel('Input Model File Path:')
         refine_model_file_edit = QLineEdit()
         refine_model_file_button = QPushButton('Browse')
         refine_model_file_button.clicked.connect(lambda _, fe=refine_model_file_edit: self.select_file(fe))
@@ -250,7 +255,7 @@ class MyApp(QMainWindow):
 
         # 添加文件选择功能
         refine_atom_file_layout = QHBoxLayout()
-        refine_atom_file_label = QLabel('Input Traced atom File Path:')
+        refine_atom_file_label = QLabel('Input Atom Type File Path:')
         refine_atom_file_edit = QLineEdit()
         refine_atom_file_button = QPushButton('Browse')
         refine_atom_file_button.clicked.connect(lambda _, fe=refine_atom_file_edit: self.select_file(fe))
@@ -259,7 +264,13 @@ class MyApp(QMainWindow):
         refine_atom_file_layout.addWidget(refine_atom_file_button)
         self.refine_layout.addLayout(refine_atom_file_layout)
 
-        # 文本框
+        refine_param_iteration_layout = QHBoxLayout()
+        refine_param_iteration_label = QLabel(f'Number of Iterations:')
+        refine_param_iteration_edit = QLineEdit('10')
+        refine_param_iteration_layout.addWidget(refine_param_iteration_label)
+        refine_param_iteration_layout.addWidget(refine_param_iteration_edit)
+        self.refine_layout.addLayout(refine_param_iteration_layout)
+
         refine_output_layout = QHBoxLayout()
         refine_output_label = QLabel(f'Output filename:')
         refine_output_edit = QLineEdit('output_model')
@@ -267,16 +278,21 @@ class MyApp(QMainWindow):
         refine_output_layout.addWidget(refine_output_edit)
         self.refine_layout.addLayout(refine_output_layout)
 
-        # 添加执行操作的按钮
-        refine_run_button = QPushButton('Run4')
-        refine_run_button.clicked.connect(
-            lambda _, refine_pj_file_path = refine_pj_file_edit.text(),
-                   refine_angle_file_path=refine_angle_file_edit.text(),
-                   refine_model_file_path = refine_model_file_edit.text(),
-                   refine_atom_file_path = refine_atom_file_edit.text(),
-                   refine_output_file_name = refine_output_edit.text():
-            self.run_main_position_refinement(refine_pj_file_path, refine_angle_file_path, refine_model_file_path, refine_atom_file_path, refine_output_file_name))
-        self.refine_layout.addWidget(refine_run_button)
+        self.refine_status_label = QLabel("Please click the button below to run position refinement.")
+        self.refine_layout.addWidget(self.refine_status_label)
+
+        self.refine_run_button = QPushButton('Run Position Refinement')
+        self.refine_run_button.clicked.connect(lambda:
+            self.refine_on_click_run(refine_pj_file_edit.text(),
+                                     refine_angle_file_edit.text(),
+                                     refine_model_file_edit.text(),
+                                     refine_atom_file_edit.text(),
+                                     refine_param_iteration_edit.text(),
+                                     refine_output_edit.text())
+                                               )
+        self.refine_layout.addWidget(self.refine_run_button)
+
+        self.refine_thread = None
 
         self.refine_page.setLayout(self.refine_layout)
         self.stack.addWidget(self.refine_page)
@@ -388,10 +404,11 @@ class MyApp(QMainWindow):
         self.tracing_run_button.setDisabled(False)
         self.tracing_status_label.setText(result)
 
-    def class_on_click_run(self, reconstruction_filename, model_filename, output_fn):
+    def class_on_click_run(self, reconstruction_filename, model_filename, num_species, output_fn):
         param = {}
         param['reconstruction_filename'] = reconstruction_filename
         param['model_filename'] = model_filename
+        param['num_species'] = int(float(num_species))
         param['output_fn'] = output_fn
         param['job_type'] = 3 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
@@ -405,6 +422,27 @@ class MyApp(QMainWindow):
     def class_on_thread_finished(self, result):
         self.class_run_button.setDisabled(False)
         self.class_status_label.setText(result)
+
+    def refine_on_click_run(self, pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn):
+        param = {}
+        param['pj_filename'] = pj_filename
+        param['angle_filename'] = angle_filename
+        param['model_filename'] = model_filename
+        param['atom_filename'] = atom_filename
+        param['num_iteration'] = int(float(num_iteration))
+        param['output_fn'] = output_fn
+        param['job_type'] = 4 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+
+        self.refine_thread = WorkerThread(param)
+
+        self.refine_thread.finished_signal.connect(self.refine_on_thread_finished)
+        self.refine_run_button.setDisabled(True)
+        self.refine_status_label.setText('Start running position refinement,  please wait...')
+        self.refine_thread.start()
+
+    def refine_on_thread_finished(self, result):
+        self.refine_run_button.setDisabled(False)
+        self.refine_status_label.setText(result)
 
     def run_main_position_refinement(self, projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn):
         main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn)
@@ -423,6 +461,7 @@ class WorkerThread(QThread):
         print("job type")
         print(job_type)
         print(type(job_type))
+        print(self.param)
         if job_type == 1: #run reconstruction
             pj_filename = self.param['pj_filename']
             angle_filename = self.param['angle_filename']
@@ -438,8 +477,17 @@ class WorkerThread(QThread):
         if job_type == 3: #run classification
             reconstruction_filename = self.param['reconstruction_filename']
             model_filename = self.param['model_filename']
+            num_species = self.param['num_species']
             output_fn = self.param['output_fn']
-            main_classification(reconstruction_filename, model_filename, output_fn)
+            main_classification(reconstruction_filename, model_filename, num_species, output_fn)
+        if job_type == 4: #run position refinement
+            pj_filename = self.param['pj_filename']
+            angle_filename = self.param['angle_filename']
+            model_filename = self.param['model_filename']
+            atom_filename = self.param['atom_filename']
+            num_iteration = self.param['num_iteration']
+            output_fn = self.param['output_fn']
+            main_position_refinement(pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn)
 
         self.finished_signal.emit(result)
 

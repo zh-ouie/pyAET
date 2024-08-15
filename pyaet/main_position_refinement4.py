@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy.optimize import least_squares
 from scipy.io import loadmat, savemat
 from pyaet.src.gradient_B_2type_difB import gradient_B_2type_difB
@@ -9,7 +10,7 @@ from scipy.optimize import least_squares
 
 # Define the fatom_vector and fparameters functions here
 
-def main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn):
+def main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, num_iterations, output_fn):
     """
     Refine atomic coordinates with an existing model, type, and reconstruction volume by minimizing
     the error between atomic coordinates and measured projections.
@@ -19,7 +20,8 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
         angles_file_path (str): File path. Angles, in the shape of (55, 3).
         model_file_path (str): File path. Model, in the shape of (3, 18356).
         atoms_file_path (str): File path. Atoms, in the shape of (1, 18356).
-        output_fn (str): The output .npy filename, Ex: 'initial_traced_model.npy'.
+        num_iterations (int): Number of iterations.
+        output_fn (str): The output .npy filename, Ex: 'initial_traced_model'.
     """
 
     # Add paths and load data
@@ -39,6 +41,7 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
     angles = np.load(angles_file_path)
     model = np.load(model_file_path)
     atoms = np.load(atoms_file_path)
+    output_file_path = os.path.join(os.path.dirname(projections_file_path), output_fn)
 
     # Process the data
     projections = np.maximum(projections, 0)
@@ -69,7 +72,7 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
 
     opt = {'ftol': 1e-12}
 
-    for jjjj in range(10):
+    for jjjj in range(num_iterations):
         print(f'Iteration num: {jjjj + 1}')
         x0 = para0.copy()
         x0[0, :] /= x0[0, 0]
@@ -111,15 +114,16 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
 
     model_refined_res = model_refined
     # savemat('output/model_refined_res.mat', {'model_refined_res': model_refined_res})
-    np.save(output_fn, model_refined_res)
+    np.save(output_file_path+".npy", model_refined_res)
     print("position refinement finished.")
     return
 
 
-projections_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4projections.npy'
-angles_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4angles.npy'
-model_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4model.npy'
-atoms_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4atoms.npy'
-output_fn = 'model_refined_res.npy'
-
-main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn)
+# projections_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4projections.npy'
+# angles_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4angles.npy'
+# model_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4model.npy'
+# atoms_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4atoms.npy'
+# num_iterations = 10
+# output_fn = 'model_refined_res'
+#
+# main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, num_iterations, output_fn)
