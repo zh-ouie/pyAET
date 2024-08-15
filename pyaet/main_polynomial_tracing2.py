@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy.interpolate import interpn
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
@@ -12,14 +13,14 @@ from pyaet.src.calc_dX_dY_dZ_Rogers import calc_dX_dY_dZ_Rogers
 from pyaet.src.initial_class_kmean import initial_class_kmean
 
 
-def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
+def main_polynomial_tracing(Dsetvol_file_path, max_num_th, output_fn):
     """
     The main polynomial tracing function.
 
     Args:
         Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
-        output_fn (str): The output .npy filename, Ex: 'initial_traced_model.npy'.
         max_num_th (int): The maximum atom numbers for tracing.
+        output_fn (str): The output .npy filename, Ex: 'initial_traced_model'.
 
     Returns:
 
@@ -32,11 +33,13 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
     # addpath('../3_Final_reconstruction_volume/') ;
 
     # Read in files: reconstruction volume
-    Dsetvol = np.load(Dsetvol_file_path)
+    # Dsetvol = np.load(Dsetvol_file_path)
 
     # Dsetvol_full = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
-    # Dsetvol_full = np.load(Dsetvol_file_path)
-    # Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
+    Dsetvol_full = np.load(Dsetvol_file_path)
+    Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
+
+    output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
     # Constants
     max_iter = 14
@@ -284,10 +287,13 @@ def main_polynomial_tracing(Dsetvol_file_path, output_fn, max_num_th=100000):
                 ind_arr2.append(i)
 
     temp_pos_arr2 = atom_pos_all[:, ind_arr2]
-    np.save(output_fn, temp_pos_arr2)
+    np.save(output_file_path+".npy", temp_pos_arr2)
     print("tracing finished.")
     return
 
+# Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'
+# max_num_th=100000
+# output_fn='initial_traced_model'
 
-# Call the main function
-main_polynomial_tracing(Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy', output_fn='initial_traced_model.npy')
+# # Call the main function
+# main_polynomial_tracing(Dsetvol_file_path, max_num_th，output_fn)

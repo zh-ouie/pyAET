@@ -7,13 +7,14 @@ from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 
-def main_classification(Dsetvol_file_path, new_model_file_path, output_fn):
+def main_classification(Dsetvol_file_path, new_model_file_path, num_species, output_fn):
     """
     The main classification function.
 
     Args:
         Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
         new_model_file_path (str): File path. Atomic positions, in the shape of (3, 18356).
+        num_species (int): Number of atom species.
         output_fn (str): The output .npy filename, Ex: 'localC_res'.
 
     Returns:
@@ -63,7 +64,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, output_fn):
 
     # Apply global k-mean classification on the reconstruction
     classify_info = {
-        'num_species': 3,
+        'num_species': num_species,
         'half_size': 3,
         'plot_half_size': 1,
         'O_Ratio': 1,
@@ -117,5 +118,7 @@ np.save('MG_reconstruction_volume.npy', data)
 
 # new_model_file_path = 'input/traced_model_inPixel.npy'
 # Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
+# num_species = 3
+# output_fn='localC_res'
 #
-# main_classification(Dsetvol_file_path, new_model_file_path, output_fn='localC_res')
+# main_classification(Dsetvol_file_path, new_model_file_path, num_species, output_fn)
