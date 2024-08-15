@@ -14,28 +14,24 @@ class MyApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # 创建一个堆叠小部件
+        # create stacking widgets.
         self.stack = QStackedWidget(self)
         
-        # 创建五个页面，并在其中添加不同的内容
+        # Create pages one by one.
         #####################
         # Home page
         self.home_page = QWidget()
         self.home_layout = QVBoxLayout()
 
         image_label = QLabel()
-        # image_label.setFixedWidth(800)  # 设置 QLabel 的固定宽度
-        # image_label.setFixedHeight(300)  # 设置 QLabel 的固定高度
         pixmap = QPixmap('pics/main_aet.png')
         image_label.setPixmap(pixmap.scaled(800, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        # scaled_pixmap = pixmap.scaled(image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        # image_label.setPixmap(pixmap)
-        image_label.setAlignment(Qt.AlignCenter)  # 水平和垂直居中
+        image_label.setAlignment(Qt.AlignCenter)  # Vertical and Horizontal Center
         self.home_layout.addWidget(image_label)
 
         text_label = QLabel("J.  Miao,  P.  Ercius,  and S.  J.  L.  Billinge,  Atomic electron tomography: 3D structures without crystals,  Science,  353(6306),  aaf2157 (2016).")
-        text_label.setAlignment(Qt.AlignCenter)  # 同样可以设置文本居中
-        text_label.setWordWrap(True)  # 开启自动换行
+        text_label.setAlignment(Qt.AlignCenter)  # Text center
+        text_label.setWordWrap(True)  # Auto new line
         self.home_layout.addWidget(text_label)
 
         self.home_page.setLayout(self.home_layout)
@@ -47,19 +43,16 @@ class MyApp(QMainWindow):
         self.recon_page = QWidget()
         self.recon_layout = QVBoxLayout()
 
-        # 添加文件选择功能
         recon_pj_file_layout = QHBoxLayout()
         recon_pj_file_label = QLabel('Input Projection File Path:')
         recon_pj_file_edit = QLineEdit()
         recon_pj_file_button = QPushButton('Browse')
         recon_pj_file_button.clicked.connect(lambda _, fe=recon_pj_file_edit: self.select_file(fe))
-        # recon_pj_file_button.clicked.connect(self.select_file)
         recon_pj_file_layout.addWidget(recon_pj_file_label)
         recon_pj_file_layout.addWidget(recon_pj_file_edit)
         recon_pj_file_layout.addWidget(recon_pj_file_button)
         self.recon_layout.addLayout(recon_pj_file_layout)
 
-        # 添加文件选择功能
         recon_angle_file_layout = QHBoxLayout()
         recon_angle_file_label = QLabel('Input Angle File Path:', self.recon_page)
         recon_angle_file_edit = QLineEdit(self.recon_page)
@@ -70,7 +63,6 @@ class MyApp(QMainWindow):
         recon_angle_file_layout.addWidget(recon_angle_file_button)
         self.recon_layout.addLayout(recon_angle_file_layout)
 
-        # 文本框
         recon_param_oversampling_layout = QHBoxLayout()
         recon_param_oversampling_label = QLabel(f'Oversampling Ratio:')
         recon_param_oversampling_edit = QLineEdit('3')
@@ -78,7 +70,6 @@ class MyApp(QMainWindow):
         recon_param_oversampling_layout.addWidget(recon_param_oversampling_edit)
         self.recon_layout.addLayout(recon_param_oversampling_layout)
 
-        # 文本框
         recon_param_iteration_layout = QHBoxLayout()
         recon_param_iteration_label = QLabel(f'Number of Iterations:')
         recon_param_iteration_edit = QLineEdit('100')
@@ -86,7 +77,6 @@ class MyApp(QMainWindow):
         recon_param_iteration_layout.addWidget(recon_param_iteration_edit)
         self.recon_layout.addLayout(recon_param_iteration_layout)
 
-        # 下拉列表
         recon_param_parallel_layout = QHBoxLayout()
         recon_param_parallel_label = QLabel('Parallel Computation:')
         recon_param_parallel_combo = QComboBox()
@@ -95,7 +85,6 @@ class MyApp(QMainWindow):
         recon_param_parallel_layout.addWidget(recon_param_parallel_combo)
         self.recon_layout.addLayout(recon_param_parallel_layout)
 
-        # 文本框
         recon_output_layout = QHBoxLayout()
         recon_output_label = QLabel(f'Output filename:')
         recon_output_edit = QLineEdit('output_reconstruction')
@@ -103,24 +92,21 @@ class MyApp(QMainWindow):
         recon_output_layout.addWidget(recon_output_edit)
         self.recon_layout.addLayout(recon_output_layout)
 
-        # 添加执行操作的按钮
-        recon_run_button = QPushButton('Run1')
-        # recon_run_button.clicked.connect(
-        #     lambda _,
-        #            recon_pj_file_path = recon_pj_file_edit.text(),
-        #            recon_angle_file_path = recon_angle_file_edit.text():
-        #     self.runPythonCode1(recon_pj_file_path, recon_angle_file_path))
-        recon_run_button.clicked.connect(
-            lambda: self.run_main_reconstruction(recon_pj_file_edit.text(),
-                                                 recon_angle_file_edit.text(),
-                                                 recon_param_oversampling_edit.text(),
-                                                 recon_param_iteration_edit.text(),
-                                                 recon_param_parallel_combo.currentText(),
-                                                 recon_output_edit.text())
-        )
-        self.recon_layout.addWidget(recon_run_button)
+        self.recon_status_label = QLabel("Please click the button below to run reconstruction.")
+        self.recon_layout.addWidget(self.recon_status_label)
 
-        # main_reconstruction(pj_filename, angle_filename, resire_param, results_filename, output_fn)
+        self.recon_run_button = QPushButton('Run Reconstruction')
+        self.recon_run_button.clicked.connect(lambda:
+            self.recon_on_click_run(recon_pj_file_edit.text(),
+                                    recon_angle_file_edit.text(),
+                                    recon_param_oversampling_edit.text(),
+                                    recon_param_iteration_edit.text(),
+                                    recon_param_parallel_combo.currentText(),
+                                    recon_output_edit.text())
+                                              )
+        self.recon_layout.addWidget(self.recon_run_button)
+
+        self.recon_thread = None
 
         self.recon_page.setLayout(self.recon_layout)
         self.stack.addWidget(self.recon_page)
@@ -132,7 +118,6 @@ class MyApp(QMainWindow):
         self.tracing_page = QWidget()
         self.tracing_layout = QVBoxLayout()
 
-        # 添加文件选择功能
         tracing_recon_file_layout = QHBoxLayout()
         tracing_recon_file_label = QLabel('Input Reconstruction File Path:')
         tracing_recon_file_edit = QLineEdit()
@@ -143,13 +128,32 @@ class MyApp(QMainWindow):
         tracing_recon_file_layout.addWidget(tracing_recon_file_button)
         self.tracing_layout.addLayout(tracing_recon_file_layout)
 
-        # 添加执行操作的按钮
-        tracing_run_button = QPushButton('Run2')
-        tracing_run_button.clicked.connect(
-            lambda _,
-                   tracing_recon_file_path = tracing_recon_file_edit.text():
-            self.runPythonCode(tracing_recon_file_path))
-        self.tracing_layout.addWidget(tracing_run_button)
+        tracing_param_max_num_th_layout = QHBoxLayout()
+        tracing_param_max_num_th_label = QLabel(f'Max Atom Number Threshold:')
+        tracing_param_max_num_th_edit = QLineEdit('100000')
+        tracing_param_max_num_th_layout.addWidget(tracing_param_max_num_th_label)
+        tracing_param_max_num_th_layout.addWidget(tracing_param_max_num_th_edit)
+        self.tracing_layout.addLayout(tracing_param_max_num_th_layout)
+
+        tracing_output_layout = QHBoxLayout()
+        tracing_output_label = QLabel(f'Output filename:')
+        tracing_output_edit = QLineEdit('output_tracing')
+        tracing_output_layout.addWidget(tracing_output_label)
+        tracing_output_layout.addWidget(tracing_output_edit)
+        self.tracing_layout.addLayout(tracing_output_layout)
+
+        self.tracing_status_label = QLabel("Please click the button below to run atom tracing.")
+        self.tracing_layout.addWidget(self.tracing_status_label)
+
+        self.tracing_run_button = QPushButton('Run Atom Tracing')
+        self.tracing_run_button.clicked.connect(lambda:
+            self.tracing_on_click_run(tracing_recon_file_edit.text(),
+                                      tracing_param_max_num_th_edit.text(),
+                                      tracing_output_edit.text())
+                                                )
+        self.tracing_layout.addWidget(self.tracing_run_button)
+
+        self.tracing_thread = None
 
         self.tracing_page.setLayout(self.tracing_layout)
         self.stack.addWidget(self.tracing_page)
@@ -269,7 +273,7 @@ class MyApp(QMainWindow):
         #####################
 
 
-        # 创建五个按钮，并设置它们的clicked信号和布局
+        # create five buttons for switching pages, as encoded from 0 to 4.
         self.buttons = []
         self.button_layout = QHBoxLayout()
         for i in range(5):
@@ -278,7 +282,7 @@ class MyApp(QMainWindow):
             if i == 1:
                 button = QPushButton(f'Reconstruction', self)
             if i == 2:
-                button = QPushButton(f'Tracing', self)
+                button = QPushButton(f'Atom Tracing', self)
             if i == 3:
                 button = QPushButton(f'Classification', self)
             if i == 4:
@@ -288,40 +292,30 @@ class MyApp(QMainWindow):
             self.button_layout.addWidget(button)
 
 
-        # 设置窗口的总布局
+        # window layout.
         self.main_layout = QVBoxLayout()
         self.main_layout.addLayout(self.button_layout)
         self.main_layout.addWidget(self.stack)
 
-        # 设置中心窗口的布局
+        # central widget.
         self.central_widget = QWidget()
         self.central_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.central_widget)
 
-        # 设置窗口的初始位置和大小
-        self.setGeometry(200, 200, 800, 600)
+        # initial window size.
+        self.setGeometry(200, 200, 500, 500)
         self.setWindowTitle('Atomic Electron Tomography')
 
 
 
-    # 显示指定索引页面的方法，并更改按钮颜色
     def display_page(self, index):
         self.stack.setCurrentIndex(index)
-        print("self.stack.setCurrentIndex(index)")
-        print(index)
-        # 更新所有按钮的颜色
+        # change colors of page buttons.
         for i, button in enumerate(self.buttons):
             if i == index:
-                button.setStyleSheet("background-color: lightblue")  # 选中的按钮更改颜色
+                button.setStyleSheet("background-color: lightblue")  # change the color of selected.
             else:
-                button.setStyleSheet("")  # 其他按钮恢复默认颜色
-
-    # 文件选择对话框
-    # def select_file(self, line_edit):
-    #     file_name, _ = QFileDialog.getOpenFileName(self, "Select File")
-    #     if file_name:  # 确保用户选择了文件
-    #         line_edit.setText(file_name)  # 更新文本框内容
-    #         print(file_name)
+                button.setStyleSheet("")  # other buttons get back to default.
 
     def select_file(self, line_edit):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Numpy Files (*.npy);;Matlab Files (*.mat)")
@@ -329,12 +323,7 @@ class MyApp(QMainWindow):
             line_edit.setText(file_path)  # 更新文本框内容
             print(file_path)
 
-    # 运行简单的Python代码
-    def runPythonCode(self, name):
-        # 这里可以替换为任何想要执行的Python代码
-        print(f"Executing Python code for {name}")
-
-    def run_main_reconstruction(self, pj_filename, angle_filename, resire_param_oversampling, resire_param_iteration, resire_param_parallel, output_fn):
+    def recon_on_click_run(self, pj_filename, angle_filename, resire_param_oversampling, resire_param_iteration, resire_param_parallel, output_fn):
         resire_param = {
             "oversampling_ratio": 3,
             "num_iterations": 10,
@@ -353,22 +342,77 @@ class MyApp(QMainWindow):
         if resire_param_parallel == "False":
             resire_param['use_parallel'] = False
 
-        main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)
+        param = {}
+        param['pj_filename'] = pj_filename
+        param['angle_filename'] = angle_filename
+        param['resire_param'] = resire_param
+        param['output_fn'] = output_fn
+        param['job_type'] = 1 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
+        self.recon_thread = WorkerThread(param)
+
+        self.recon_thread.finished_signal.connect(self.recon_on_thread_finished)
+        self.recon_run_button.setDisabled(True)
+        self.recon_status_label.setText('Start running reconstruction,  please wait...')
+        self.recon_thread.start()
+
+    def recon_on_thread_finished(self, result):
+        self.recon_run_button.setDisabled(False)
+        self.recon_status_label.setText(result)
+
+    def tracing_on_click_run(self, reconstruction_filename, max_num_th, output_fn):
+        param = {}
+        param['reconstruction_filename'] = reconstruction_filename
+        param['max_num_th'] = int(float(max_num_th))
+        param['output_fn'] = output_fn
+        param['job_type'] = 2 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+
+        self.tracing_thread = WorkerThread(param)
+
+        self.tracing_thread.finished_signal.connect(self.tracing_on_thread_finished)
+        self.tracing_run_button.setDisabled(True)
+        self.tracing_status_label.setText('Start running tracingstruction,  please wait...')
+        self.tracing_thread.start()
+
+    def tracing_on_thread_finished(self, result):
+        self.tracing_run_button.setDisabled(False)
+        self.tracing_status_label.setText(result)
 
     def run_main_position_refinement(self, projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn):
-        print("now this line")
-        print(projections_file_path)
-        print("end now this line")
-        print(type(projections_file_path))
-        print(type(output_fn))
         main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, output_fn)
         return
 
+class WorkerThread(QThread):
+    finished_signal = pyqtSignal(str)  # define a signal to show job finished.
+
+    def __init__(self, param):
+        super(WorkerThread, self).__init__()
+        self.param = param
+
+    def run(self):
+        # run the core calculation.
+        job_type = self.param['job_type']
+        print("job type")
+        print(job_type)
+        print(type(job_type))
+        if job_type == 1: #run reconstruction
+            pj_filename = self.param['pj_filename']
+            angle_filename = self.param['angle_filename']
+            resire_param = self.param['resire_param']
+            output_fn = self.param['output_fn']
+            main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)
+            result = 'Reconstruction done.'
+        if job_type == 2: #run tracing
+            reconstruction_filename = self.param['reconstruction_filename']
+            max_num_th = self.param['max_num_th']
+            output_fn = self.param['output_fn']
+            main_polynomial_tracing(reconstruction_filename, max_num_th, output_fn)
+
+        self.finished_signal.emit(result)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = MyApp()
-    ex.show()
+    my_app = MyApp()
+    my_app.show()
     sys.exit(app.exec_())
