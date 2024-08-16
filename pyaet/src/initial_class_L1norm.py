@@ -1,46 +1,7 @@
 import numpy as np
 from scipy.optimize import optimize
-
-
-
-#todo:check1!!!!!!
-def create_box(dim):
-    """
-    Create a box of given dimensions.
-
-    Parameters:
-    - dim (int): Dimension size of the box.
-
-    Returns:
-    - coordinates (numpy.ndarray): Coordinates for the box.
-    """
-    return np.indices((dim, dim, dim)).reshape(3, -1).T
-
-#todo:check1!!!!!!
-def fit_gauss3D_PD(fit_param_init, box2coordinates, mean_box, fixed, lb, ub):
-    """
-    Perform the fit of a 3D Gaussian function to the data.
-
-    Parameters:
-    - fit_param_init (list): Initial fit parameters.
-    - box2coordinates (numpy.ndarray): Box coordinates.
-    - mean_box (numpy.ndarray): Mean box data.
-    - fixed (list): Fixed parameters.
-    - lb (list): Lower bounds.
-    - ub (list): Upper bounds.
-
-    Returns:
-    - fit_result (numpy.ndarray): Fitted parameters.
-    """
-
-    def objective(params):
-        # Implement your fitting objective function here
-        # For example, the sum of squared differences
-        fitted = params[0] + np.zeros_like(mean_box)
-        return np.sum((mean_box - fitted) ** 2)
-
-    result = minimize(objective, fit_param_init, bounds=np.vstack((lb, ub)).T)
-    return result.x
+from pyaet.src.create_box import create_box
+from pyaet.src.fit_gauss3D_PD import fit_gauss3D_PD
 
 
 def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
@@ -74,17 +35,17 @@ def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
     else:
         useInd = np.arange(len(XX))
 
-    box2coordinates = create_box(box_arr.shape[0]) #todo: check
+    box_coordinates = create_box(box_arr.shape[0])
 
-    fit_param_init = [0, np.max(mean_box), 0, 0, 0, 0.5, 0.5, 0.5, 0, 0, 0]
-    fixed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    fit_param_init = [0, np.nanmax(mean_box), 0, 0, 0, 0.5, 0.5, 0.5, 0, 0, 0]
+    fixed = np.full(11, False, dtype=bool)
     lb = [0, 0, -2, -2, -2, 0, 0, 0, -np.pi, 0, -np.pi]
     ub = [np.inf, np.inf, 2, 2, 2, np.inf, np.inf, np.inf, np.pi, np.pi, np.pi]
 
     if half_size == 0:
         fit_result = 0
     else:
-        fit_result = fit_gauss3D_PD(fit_param_init, box2coordinates, mean_box, fixed, lb, ub) #todo: check
+        fit_result = fit_gauss3D_PD(fit_param_init, box_coordinates, mean_box, fixed, lb, ub)
 
     print(f'fitted constant = {fit_result[0]:.2f}')
 
