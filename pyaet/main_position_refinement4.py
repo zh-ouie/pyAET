@@ -91,8 +91,8 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
         lb = lb.flatten()
         ub = ub.flatten()
 
-        # result = least_squares(residuals, x0, args=(xdata, projections), bounds=(lb, ub), method='trf', ftol=opt['ftol'])
-        result = least_squares(residuals, x0, args=(xdata, projections), bounds=(lb, ub), method='trf', max_nfev=1)
+        result = least_squares(residuals, x0, args=(xdata, projections), bounds=(lb, ub), method='trf', ftol=opt['ftol'])
+        # result = least_squares(residuals, x0, args=(xdata, projections), bounds=(lb, ub), method='trf', max_nfev=1)
 
         para_fit = result.x
         para0 = para_fit.reshape(para0.shape) #reshape it back.
