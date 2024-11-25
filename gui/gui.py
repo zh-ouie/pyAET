@@ -1,13 +1,15 @@
 import sys
-# from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QStackedWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox, QFileDialog
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 
 from pyaet.main_reconstruction1 import main_reconstruction
 from pyaet.main_polynomial_tracing2 import main_polynomial_tracing
 from pyaet.main_classification3 import main_classification
 from pyaet.main_position_refinement4 import main_position_refinement
+from pyaet.analysis.calc_pdf import calc_pdf
 
 
 class MyApp(QMainWindow):
@@ -97,12 +99,12 @@ class MyApp(QMainWindow):
 
         self.recon_run_button = QPushButton('Run Reconstruction')
         self.recon_run_button.clicked.connect(lambda:
-            self.recon_on_click_run(recon_pj_file_edit.text(),
-                                    recon_angle_file_edit.text(),
-                                    recon_param_oversampling_edit.text(),
-                                    recon_param_iteration_edit.text(),
-                                    recon_param_parallel_combo.currentText(),
-                                    recon_output_edit.text())
+                                              self.recon_on_click_run(recon_pj_file_edit.text(),
+                                                                      recon_angle_file_edit.text(),
+                                                                      recon_param_oversampling_edit.text(),
+                                                                      recon_param_iteration_edit.text(),
+                                                                      recon_param_parallel_combo.currentText(),
+                                                                      recon_output_edit.text())
                                               )
         self.recon_layout.addWidget(self.recon_run_button)
 
@@ -147,9 +149,9 @@ class MyApp(QMainWindow):
 
         self.tracing_run_button = QPushButton('Run Atom Tracing')
         self.tracing_run_button.clicked.connect(lambda:
-            self.tracing_on_click_run(tracing_recon_file_edit.text(),
-                                      tracing_param_max_num_th_edit.text(),
-                                      tracing_output_edit.text())
+                                                self.tracing_on_click_run(tracing_recon_file_edit.text(),
+                                                                          tracing_param_max_num_th_edit.text(),
+                                                                          tracing_output_edit.text())
                                                 )
         self.tracing_layout.addWidget(self.tracing_run_button)
 
@@ -204,10 +206,10 @@ class MyApp(QMainWindow):
 
         self.class_run_button = QPushButton('Run Atom Classification')
         self.class_run_button.clicked.connect(lambda:
-            self.class_on_click_run(class_recon_file_edit.text(),
-                                    class_model_file_edit.text(),
-                                    class_param_species_edit.text(),
-                                    class_output_edit.text())
+                                              self.class_on_click_run(class_recon_file_edit.text(),
+                                                                      class_model_file_edit.text(),
+                                                                      class_param_species_edit.text(),
+                                                                      class_output_edit.text())
                                               )
         self.class_layout.addWidget(self.class_run_button)
 
@@ -283,12 +285,12 @@ class MyApp(QMainWindow):
 
         self.refine_run_button = QPushButton('Run Position Refinement')
         self.refine_run_button.clicked.connect(lambda:
-            self.refine_on_click_run(refine_pj_file_edit.text(),
-                                     refine_angle_file_edit.text(),
-                                     refine_model_file_edit.text(),
-                                     refine_atom_file_edit.text(),
-                                     refine_param_iteration_edit.text(),
-                                     refine_output_edit.text())
+                                               self.refine_on_click_run(refine_pj_file_edit.text(),
+                                                                        refine_angle_file_edit.text(),
+                                                                        refine_model_file_edit.text(),
+                                                                        refine_atom_file_edit.text(),
+                                                                        refine_param_iteration_edit.text(),
+                                                                        refine_output_edit.text())
                                                )
         self.refine_layout.addWidget(self.refine_run_button)
 
@@ -328,11 +330,23 @@ class MyApp(QMainWindow):
         self.central_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.central_widget)
 
+        # Create menu bar
+        menubar = self.menuBar()
+        analysis_menu = menubar.addMenu('Analysis')
+
+        # Add "PDF Calculator" action
+        pdf_calculator_action = QAction('PDF Calculator', self)
+        pdf_calculator_action.triggered.connect(self.open_pdf_calculator)
+        analysis_menu.addAction(pdf_calculator_action)
+
         # initial window size.
         self.setGeometry(200, 200, 500, 500)
         self.setWindowTitle('Atomic Electron Tomography')
 
 
+    def open_pdf_calculator(self):
+        self.pdf_calculator = PDFCalculator()
+        self.pdf_calculator.show()
 
     def display_page(self, index):
         self.stack.setCurrentIndex(index)
@@ -373,7 +387,7 @@ class MyApp(QMainWindow):
         param['angle_filename'] = angle_filename
         param['resire_param'] = resire_param
         param['output_fn'] = output_fn
-        param['job_type'] = 1 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+        param['job_type'] = 1  # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
         self.recon_thread = WorkerThread(param)
 
@@ -391,7 +405,7 @@ class MyApp(QMainWindow):
         param['reconstruction_filename'] = reconstruction_filename
         param['max_num_th'] = int(float(max_num_th))
         param['output_fn'] = output_fn
-        param['job_type'] = 2 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+        param['job_type'] = 2  # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
         self.tracing_thread = WorkerThread(param)
 
@@ -410,7 +424,7 @@ class MyApp(QMainWindow):
         param['model_filename'] = model_filename
         param['num_species'] = int(float(num_species))
         param['output_fn'] = output_fn
-        param['job_type'] = 3 # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
+        param['job_type'] = 3  # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
         self.class_thread = WorkerThread(param)
 
@@ -462,25 +476,25 @@ class WorkerThread(QThread):
         print(job_type)
         print(type(job_type))
         print(self.param)
-        if job_type == 1: #run reconstruction
+        if job_type == 1:  #run reconstruction
             pj_filename = self.param['pj_filename']
             angle_filename = self.param['angle_filename']
             resire_param = self.param['resire_param']
             output_fn = self.param['output_fn']
             main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)
             result = 'Reconstruction done.'
-        if job_type == 2: #run tracing
+        if job_type == 2:  #run tracing
             reconstruction_filename = self.param['reconstruction_filename']
             max_num_th = self.param['max_num_th']
             output_fn = self.param['output_fn']
             main_polynomial_tracing(reconstruction_filename, max_num_th, output_fn)
-        if job_type == 3: #run classification
+        if job_type == 3:  #run classification
             reconstruction_filename = self.param['reconstruction_filename']
             model_filename = self.param['model_filename']
             num_species = self.param['num_species']
             output_fn = self.param['output_fn']
             main_classification(reconstruction_filename, model_filename, num_species, output_fn)
-        if job_type == 4: #run position refinement
+        if job_type == 4:  #run position refinement
             pj_filename = self.param['pj_filename']
             angle_filename = self.param['angle_filename']
             model_filename = self.param['model_filename']
@@ -490,6 +504,79 @@ class WorkerThread(QThread):
             main_position_refinement(pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn)
 
         self.finished_signal.emit(result)
+
+
+class PDFCalculator(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('PDF Calculator')
+        self.setGeometry(100, 100, 800, 600)
+
+        layout = QVBoxLayout()
+
+        pdf_calculator_model_file_layout = QHBoxLayout()
+        pdf_calculator_model_file_label = QLabel('Input Model File Path:')
+        pdf_calculator_model_file_edit = QLineEdit()
+        pdf_calculator_model_file_button = QPushButton('Browse')
+        pdf_calculator_model_file_button.clicked.connect(lambda _, fe=pdf_calculator_model_file_edit: self.select_file(fe))
+        pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_label)
+        pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_edit)
+        pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_button)
+        layout.addLayout(pdf_calculator_model_file_layout)
+
+        pdf_calculator_rmax_layout = QHBoxLayout()
+        pdf_calculator_rmax_label = QLabel(f'Rmax (Å):')
+        pdf_calculator_rmax_edit = QLineEdit('10')
+        pdf_calculator_rmax_layout.addWidget(pdf_calculator_rmax_label)
+        pdf_calculator_rmax_layout.addWidget(pdf_calculator_rmax_edit)
+        layout.addLayout(pdf_calculator_rmax_layout)
+
+        self.pdf_calculator_plot_button = QPushButton('Plot')
+        self.pdf_calculator_plot_button.clicked.connect(lambda:
+                                                        self.plot_pdf(pdf_calculator_model_file_edit.text(),
+                                                                      pdf_calculator_rmax_edit.text())
+                                                        )
+        layout.addWidget(self.pdf_calculator_plot_button)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas)
+
+        # Add Matplotlib toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        layout.addWidget(self.toolbar)
+
+        self.setLayout(layout)
+
+    def select_file(self, line_edit):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Model Files (*.xyz)")
+        if file_path:  # 确保用户选择了文件
+            line_edit.setText(file_path)  # 更新文本框内容
+            print(file_path)
+
+    def plot_pdf(self, model_filename, rmax):
+        model_filename = str(model_filename)
+        rmax = float(rmax)
+        if not model_filename:
+            self.label.setText('Please enter a valid file path.')
+            return
+        try:
+            x, y = calc_pdf(model_filename, rmax=rmax)
+            self.update_plot(x, y)
+        except Exception as e:
+            self.label.setText(f'Error: {str(e)}')
+
+    def update_plot(self, x, y):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.plot(x, y)
+        ax.set_xlabel(r"r ($\mathrm{\AA}$)")
+        ax.set_ylabel(r"g")
+        ax.set_title('PDF')
+        self.canvas.draw()
 
 
 if __name__ == '__main__':
