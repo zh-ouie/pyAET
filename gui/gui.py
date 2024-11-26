@@ -463,7 +463,7 @@ class MyApp(QMainWindow):
         return
 
 class WorkerThread(QThread):
-    finished_signal = pyqtSignal(str)  # define a signal to show job finished.
+    finished_signal = pyqtSignal(object)  # define a signal to show job finished.
 
     def __init__(self, param):
         super(WorkerThread, self).__init__()
@@ -488,12 +488,14 @@ class WorkerThread(QThread):
             max_num_th = self.param['max_num_th']
             output_fn = self.param['output_fn']
             main_polynomial_tracing(reconstruction_filename, max_num_th, output_fn)
+            result = 'Tracing done.'
         if job_type == 3:  #run classification
             reconstruction_filename = self.param['reconstruction_filename']
             model_filename = self.param['model_filename']
             num_species = self.param['num_species']
             output_fn = self.param['output_fn']
             main_classification(reconstruction_filename, model_filename, num_species, output_fn)
+            result = 'Classification done.'
         if job_type == 4:  #run position refinement
             pj_filename = self.param['pj_filename']
             angle_filename = self.param['angle_filename']
@@ -502,6 +504,12 @@ class WorkerThread(QThread):
             num_iteration = self.param['num_iteration']
             output_fn = self.param['output_fn']
             main_position_refinement(pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn)
+            result = 'Position refinement done.'
+        if job_type == 10:  #run pdf calculator
+            model_filename = self.param['model_filename']
+            rmax = self.param['rmax']
+            output_fn = self.param['output_fn']
+            result = calc_pdf(model_filename, rmax=rmax, output_fn=output_fn)
 
         self.finished_signal.emit(result)
 
@@ -515,7 +523,7 @@ class PDFCalculator(QWidget):
         self.setWindowTitle('PDF Calculator')
         self.setGeometry(100, 100, 800, 600)
 
-        layout = QVBoxLayout()
+        self.pdf_layout = QVBoxLayout()
 
         pdf_calculator_model_file_layout = QHBoxLayout()
         pdf_calculator_model_file_label = QLabel('Input Model File Path:')
@@ -525,31 +533,44 @@ class PDFCalculator(QWidget):
         pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_label)
         pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_edit)
         pdf_calculator_model_file_layout.addWidget(pdf_calculator_model_file_button)
-        layout.addLayout(pdf_calculator_model_file_layout)
+        self.pdf_layout.addLayout(pdf_calculator_model_file_layout)
 
         pdf_calculator_rmax_layout = QHBoxLayout()
         pdf_calculator_rmax_label = QLabel(f'Rmax (Å):')
         pdf_calculator_rmax_edit = QLineEdit('10')
         pdf_calculator_rmax_layout.addWidget(pdf_calculator_rmax_label)
         pdf_calculator_rmax_layout.addWidget(pdf_calculator_rmax_edit)
-        layout.addLayout(pdf_calculator_rmax_layout)
+        self.pdf_layout.addLayout(pdf_calculator_rmax_layout)
 
-        self.pdf_calculator_plot_button = QPushButton('Plot')
-        self.pdf_calculator_plot_button.clicked.connect(lambda:
-                                                        self.plot_pdf(pdf_calculator_model_file_edit.text(),
-                                                                      pdf_calculator_rmax_edit.text())
-                                                        )
-        layout.addWidget(self.pdf_calculator_plot_button)
+        pdf_calculator_output_layout = QHBoxLayout()
+        pdf_calculator_output_label = QLabel(f'Output filename:')
+        pdf_calculator_output_edit = QLineEdit('output_pdf')
+        pdf_calculator_output_layout.addWidget(pdf_calculator_output_label)
+        pdf_calculator_output_layout.addWidget(pdf_calculator_output_edit)
+        self.pdf_layout.addLayout(pdf_calculator_output_layout)
+
+        self.pdf_status_label = QLabel("Please click the button below to calculate PDF.")
+        self.pdf_layout.addWidget(self.pdf_status_label)
+
+        self.pdf_calculator_run_button = QPushButton('Calculate PDF')
+        self.pdf_calculator_run_button.clicked.connect(lambda:
+                                                        self.plot_pdf_on_click_run(pdf_calculator_model_file_edit.text(),
+                                                                                   pdf_calculator_rmax_edit.text(),
+                                                                                   pdf_calculator_output_edit.text())
+                                                       )
+        self.pdf_layout.addWidget(self.pdf_calculator_run_button)
+
+        self.pdf_thread = None
 
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
-        layout.addWidget(self.canvas)
+        self.pdf_layout.addWidget(self.canvas)
 
         # Add Matplotlib toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
+        self.pdf_layout.addWidget(self.toolbar)
 
-        self.setLayout(layout)
+        self.setLayout(self.pdf_layout)
 
     def select_file(self, line_edit):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Model Files (*.xyz)")
@@ -557,17 +578,25 @@ class PDFCalculator(QWidget):
             line_edit.setText(file_path)  # 更新文本框内容
             print(file_path)
 
-    def plot_pdf(self, model_filename, rmax):
-        model_filename = str(model_filename)
-        rmax = float(rmax)
-        if not model_filename:
-            self.label.setText('Please enter a valid file path.')
-            return
-        try:
-            x, y = calc_pdf(model_filename, rmax=rmax)
-            self.update_plot(x, y)
-        except Exception as e:
-            self.label.setText(f'Error: {str(e)}')
+    def plot_pdf_on_click_run(self, model_filename, rmax, output_fn):
+        param = {}
+        param['model_filename'] = str(model_filename)
+        param['rmax'] = float(rmax)
+        param['output_fn'] = output_fn
+        param['job_type'] = 10  # 10:pdf, 11:voronoi
+
+        self.pdf_thread = WorkerThread(param)
+
+        self.pdf_thread.finished_signal.connect(self.pdf_on_thread_finished)
+        self.pdf_calculator_run_button.setDisabled(True)
+        self.pdf_status_label.setText('Start calculating PDF,  please wait...')
+        self.pdf_thread.start()
+
+    def pdf_on_thread_finished(self, result):
+        self.pdf_calculator_run_button.setDisabled(False)
+        self.pdf_status_label.setText("PDF calculation done.")
+        x, y = result[0], result[1]
+        self.update_plot(x, y)
 
     def update_plot(self, x, y):
         self.figure.clear()

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from ase.io import read
 from matscipy.neighbours import neighbour_list
@@ -41,5 +42,8 @@ def calc_pdf(stru_fn, rmax=10.0, rmin=0.0, dr=0.1, pdf_type='gr', output_fn=None
 
     if pdf_type == 'gr':
         output_pdf = n / (shell_volume * n_atoms * mean_density)
+
+    output_file_path = os.path.join(os.path.dirname(stru_fn), output_fn)
+    np.savetxt(output_file_path+".txt", np.transpose([r, output_pdf]), fmt='%f')
 
     return r, output_pdf
