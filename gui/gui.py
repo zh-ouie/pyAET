@@ -1,9 +1,12 @@
 import sys
+import matplotlib.pyplot as plt
+import numpy as np
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from scipy.stats import gaussian_kde
 
 from pyaet.main_reconstruction1 import main_reconstruction
 from pyaet.main_polynomial_tracing2 import main_polynomial_tracing
@@ -535,7 +538,7 @@ class PDFCalculator(QWidget):
 
     def initUI(self):
         self.setWindowTitle('PDF Calculator')
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 800, 800)
 
         self.pdf_layout = QVBoxLayout()
 
@@ -629,7 +632,7 @@ class BOOCalculator(QWidget):
 
     def initUI(self):
         self.setWindowTitle('BOO Calculator')
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 800, 800)
 
         self.boo_layout = QVBoxLayout()
 
@@ -709,10 +712,13 @@ class BOOCalculator(QWidget):
     def update_plot(self, x, y):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        ax.scatter(x, y, s=60)
+        xy = np.vstack([x, y])
+        z = gaussian_kde(xy)(xy)
+        sc = ax.scatter(x, y, c=z, s=30, cmap='jet')
         ax.set_xlabel("$Q_4$")
         ax.set_ylabel("$Q_6$")
         ax.set_title('BOO Parameters')
+        self.figure.colorbar(sc, ax=ax)
         self.canvas.draw()
 
 

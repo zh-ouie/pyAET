@@ -35,7 +35,7 @@ def calc_pdf(stru_fn, rmax=10.0, rmin=0.1, dr=0.1, pdf_type='gr', output_fn=None
 
 def define_cell_xyz(stru_fn):
     """
-    Define the cell for a given xyz, and convert it to ASE Atoms class.
+    Define the cell for a given xyz file, and convert it to ASE Atoms class.
 
     Args:
         stru_fn (str): A filename of xyz file.
@@ -49,7 +49,7 @@ def define_cell_xyz(stru_fn):
     pos_new[:, 2] = pos[:, 2] - np.min(pos[:, 2])
 
     atoms.set_positions(pos_new)
-    atoms.set_cell([np.max(pos_new[:, 0]), np.max(pos_new[:, 0]), np.max(pos_new[:, 0])])
+    atoms.set_cell([np.max(pos_new[:, 0]), np.max(pos_new[:, 1]), np.max(pos_new[:, 2])])
 
     return atoms
 
