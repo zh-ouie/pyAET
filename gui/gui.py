@@ -10,6 +10,7 @@ from pyaet.main_polynomial_tracing2 import main_polynomial_tracing
 from pyaet.main_classification3 import main_classification
 from pyaet.main_position_refinement4 import main_position_refinement
 from pyaet.analysis.calc_pdf import calc_pdf
+from pyaet.analysis.calc_boo import calc_boo
 
 
 class MyApp(QMainWindow):
@@ -339,14 +340,22 @@ class MyApp(QMainWindow):
         pdf_calculator_action.triggered.connect(self.open_pdf_calculator)
         analysis_menu.addAction(pdf_calculator_action)
 
+        # Add "BOO Calculator" action
+        boo_calculator_action = QAction('BOO Calculator', self)
+        boo_calculator_action.triggered.connect(self.open_boo_calculator)
+        analysis_menu.addAction(boo_calculator_action)
+
         # initial window size.
         self.setGeometry(200, 200, 500, 500)
         self.setWindowTitle('Atomic Electron Tomography')
 
-
     def open_pdf_calculator(self):
         self.pdf_calculator = PDFCalculator()
         self.pdf_calculator.show()
+
+    def open_boo_calculator(self):
+        self.boo_calculator = BOOCalculator()
+        self.boo_calculator.show()
 
     def display_page(self, index):
         self.stack.setCurrentIndex(index)
@@ -510,6 +519,11 @@ class WorkerThread(QThread):
             rmax = self.param['rmax']
             output_fn = self.param['output_fn']
             result = calc_pdf(model_filename, rmax=rmax, output_fn=output_fn)
+        if job_type == 11:  #run boo calculator
+            model_filename = self.param['model_filename']
+            cutoff = self.param['cutoff']
+            output_fn = self.param['output_fn']
+            result = calc_boo(model_filename, cutoff=cutoff, output_fn=output_fn)
 
         self.finished_signal.emit(result)
 
@@ -583,7 +597,7 @@ class PDFCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['rmax'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 10  # 10:pdf, 11:voronoi
+        param['job_type'] = 10  # 10:pdf, 11:boo
 
         self.pdf_thread = WorkerThread(param)
 
@@ -605,6 +619,100 @@ class PDFCalculator(QWidget):
         ax.set_xlabel(r"r ($\mathrm{\AA}$)")
         ax.set_ylabel(r"g")
         ax.set_title('PDF')
+        self.canvas.draw()
+
+
+class BOOCalculator(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('BOO Calculator')
+        self.setGeometry(100, 100, 800, 600)
+
+        self.boo_layout = QVBoxLayout()
+
+        boo_calculator_model_file_layout = QHBoxLayout()
+        boo_calculator_model_file_label = QLabel('Input Model File Path:')
+        boo_calculator_model_file_edit = QLineEdit()
+        boo_calculator_model_file_button = QPushButton('Browse')
+        boo_calculator_model_file_button.clicked.connect(lambda _, fe=boo_calculator_model_file_edit: self.select_file(fe))
+        boo_calculator_model_file_layout.addWidget(boo_calculator_model_file_label)
+        boo_calculator_model_file_layout.addWidget(boo_calculator_model_file_edit)
+        boo_calculator_model_file_layout.addWidget(boo_calculator_model_file_button)
+        self.boo_layout.addLayout(boo_calculator_model_file_layout)
+
+        boo_calculator_rmax_layout = QHBoxLayout()
+        boo_calculator_rmax_label = QLabel(f'Cutoff (Å):')
+        boo_calculator_rmax_edit = QLineEdit('4.0')
+        boo_calculator_rmax_layout.addWidget(boo_calculator_rmax_label)
+        boo_calculator_rmax_layout.addWidget(boo_calculator_rmax_edit)
+        self.boo_layout.addLayout(boo_calculator_rmax_layout)
+
+        boo_calculator_output_layout = QHBoxLayout()
+        boo_calculator_output_label = QLabel(f'Output filename:')
+        boo_calculator_output_edit = QLineEdit('output_boo')
+        boo_calculator_output_layout.addWidget(boo_calculator_output_label)
+        boo_calculator_output_layout.addWidget(boo_calculator_output_edit)
+        self.boo_layout.addLayout(boo_calculator_output_layout)
+
+        self.boo_status_label = QLabel("Please click the button below to calculate bond orientational order parameters.")
+        self.boo_layout.addWidget(self.boo_status_label)
+
+        self.boo_calculator_run_button = QPushButton('Calculate BOO')
+        self.boo_calculator_run_button.clicked.connect(lambda:
+                                                        self.plot_boo_on_click_run(boo_calculator_model_file_edit.text(),
+                                                                                   boo_calculator_rmax_edit.text(),
+                                                                                   boo_calculator_output_edit.text())
+                                                       )
+        self.boo_layout.addWidget(self.boo_calculator_run_button)
+
+        self.boo_thread = None
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.boo_layout.addWidget(self.canvas)
+
+        # Add Matplotlib toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.boo_layout.addWidget(self.toolbar)
+
+        self.setLayout(self.boo_layout)
+
+    def select_file(self, line_edit):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Model Files (*.xyz)")
+        if file_path:  # 确保用户选择了文件
+            line_edit.setText(file_path)  # 更新文本框内容
+            print(file_path)
+
+    def plot_boo_on_click_run(self, model_filename, rmax, output_fn):
+        param = {}
+        param['model_filename'] = str(model_filename)
+        param['cutoff'] = float(rmax)
+        param['output_fn'] = output_fn
+        param['job_type'] = 11  # 10:pdf, 11:boo
+
+        self.boo_thread = WorkerThread(param)
+
+        self.boo_thread.finished_signal.connect(self.boo_on_thread_finished)
+        self.boo_calculator_run_button.setDisabled(True)
+        self.boo_status_label.setText('Start calculating bond orientational order parameters,  please wait...')
+        self.boo_thread.start()
+
+    def boo_on_thread_finished(self, result):
+        self.boo_calculator_run_button.setDisabled(False)
+        self.boo_status_label.setText("BOO calculation done.")
+        x, y = result[0], result[1]
+        self.update_plot(x, y)
+
+    def update_plot(self, x, y):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.scatter(x, y, s=60)
+        ax.set_xlabel("$Q_4$")
+        ax.set_ylabel("$Q_6$")
+        ax.set_title('BOO Parameters')
         self.canvas.draw()
 
 
