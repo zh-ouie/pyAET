@@ -14,6 +14,7 @@ from pyaet.main_classification3 import main_classification
 from pyaet.main_position_refinement4 import main_position_refinement
 from pyaet.analysis.calc_pdf import calc_pdf
 from pyaet.analysis.calc_boo import calc_boo
+from pyaet.analysis.calc_csro import calc_csro
 
 
 class MyApp(QMainWindow):
@@ -348,6 +349,11 @@ class MyApp(QMainWindow):
         boo_calculator_action.triggered.connect(self.open_boo_calculator)
         analysis_menu.addAction(boo_calculator_action)
 
+        # Add "CSRO Calculator" action
+        csro_calculator_action = QAction('CSRO Calculator', self)
+        csro_calculator_action.triggered.connect(self.open_csro_calculator)
+        analysis_menu.addAction(csro_calculator_action)
+
         # initial window size.
         self.setGeometry(200, 200, 500, 500)
         self.setWindowTitle('Atomic Electron Tomography')
@@ -359,6 +365,10 @@ class MyApp(QMainWindow):
     def open_boo_calculator(self):
         self.boo_calculator = BOOCalculator()
         self.boo_calculator.show()
+
+    def open_csro_calculator(self):
+        self.csro_calculator = CSROCalculator()
+        self.csro_calculator.show()
 
     def display_page(self, index):
         self.stack.setCurrentIndex(index)
@@ -527,6 +537,11 @@ class WorkerThread(QThread):
             cutoff = self.param['cutoff']
             output_fn = self.param['output_fn']
             result = calc_boo(model_filename, cutoff=cutoff, output_fn=output_fn)
+        if job_type == 12:  #run csro calculator
+            model_filename = self.param['model_filename']
+            cutoff = self.param['cutoff']
+            output_fn = self.param['output_fn']
+            result = calc_csro(model_filename, cutoff=cutoff, output_fn=output_fn)
 
         self.finished_signal.emit(result)
 
@@ -600,7 +615,7 @@ class PDFCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['rmax'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 10  # 10:pdf, 11:boo
+        param['job_type'] = 10  # 10:pdf, 11:boo, 12:csro
 
         self.pdf_thread = WorkerThread(param)
 
@@ -694,7 +709,7 @@ class BOOCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['cutoff'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 11  # 10:pdf, 11:boo
+        param['job_type'] = 11  # 10:pdf, 11:boo, 12:csro
 
         self.boo_thread = WorkerThread(param)
 
@@ -719,6 +734,101 @@ class BOOCalculator(QWidget):
         ax.set_ylabel("$Q_6$")
         ax.set_title('BOO Parameters')
         self.figure.colorbar(sc, ax=ax)
+        self.canvas.draw()
+
+
+class CSROCalculator(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('CSRO Calculator')
+        self.setGeometry(100, 100, 800, 800)
+
+        self.csro_layout = QVBoxLayout()
+
+        csro_calculator_model_file_layout = QHBoxLayout()
+        csro_calculator_model_file_label = QLabel('Input Model File Path:')
+        csro_calculator_model_file_edit = QLineEdit()
+        csro_calculator_model_file_button = QPushButton('Browse')
+        csro_calculator_model_file_button.clicked.connect(lambda _, fe=csro_calculator_model_file_edit: self.select_file(fe))
+        csro_calculator_model_file_layout.addWidget(csro_calculator_model_file_label)
+        csro_calculator_model_file_layout.addWidget(csro_calculator_model_file_edit)
+        csro_calculator_model_file_layout.addWidget(csro_calculator_model_file_button)
+        self.csro_layout.addLayout(csro_calculator_model_file_layout)
+
+        csro_calculator_rmax_layout = QHBoxLayout()
+        csro_calculator_rmax_label = QLabel(f'Cutoff (Å):')
+        csro_calculator_rmax_edit = QLineEdit('4.0')
+        csro_calculator_rmax_layout.addWidget(csro_calculator_rmax_label)
+        csro_calculator_rmax_layout.addWidget(csro_calculator_rmax_edit)
+        self.csro_layout.addLayout(csro_calculator_rmax_layout)
+
+        csro_calculator_output_layout = QHBoxLayout()
+        csro_calculator_output_label = QLabel(f'Output filename:')
+        csro_calculator_output_edit = QLineEdit('output_csro')
+        csro_calculator_output_layout.addWidget(csro_calculator_output_label)
+        csro_calculator_output_layout.addWidget(csro_calculator_output_edit)
+        self.csro_layout.addLayout(csro_calculator_output_layout)
+
+        self.csro_status_label = QLabel("Please click the button below to calculate chemical short range order parameters.")
+        self.csro_layout.addWidget(self.csro_status_label)
+
+        self.csro_calculator_run_button = QPushButton('Calculate CSRO')
+        self.csro_calculator_run_button.clicked.connect(lambda:
+                                                        self.plot_csro_on_click_run(csro_calculator_model_file_edit.text(),
+                                                                                   csro_calculator_rmax_edit.text(),
+                                                                                   csro_calculator_output_edit.text())
+                                                       )
+        self.csro_layout.addWidget(self.csro_calculator_run_button)
+
+        self.csro_thread = None
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.csro_layout.addWidget(self.canvas)
+
+        # Add Matplotlib toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.csro_layout.addWidget(self.toolbar)
+
+        self.setLayout(self.csro_layout)
+
+    def select_file(self, line_edit):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Model Files (*.xyz)")
+        if file_path:  # 确保用户选择了文件
+            line_edit.setText(file_path)  # 更新文本框内容
+            print(file_path)
+
+    def plot_csro_on_click_run(self, model_filename, rmax, output_fn):
+        param = {}
+        param['model_filename'] = str(model_filename)
+        param['cutoff'] = float(rmax)
+        param['output_fn'] = output_fn
+        param['job_type'] = 12  # 10:pdf, 11:boo, 12:csro
+
+        self.csro_thread = WorkerThread(param)
+
+        self.csro_thread.finished_signal.connect(self.csro_on_thread_finished)
+        self.csro_calculator_run_button.setDisabled(True)
+        self.csro_status_label.setText('Start calculating chemical short range order parameters,  please wait...')
+        self.csro_thread.start()
+
+    def csro_on_thread_finished(self, result):
+        self.csro_calculator_run_button.setDisabled(False)
+        self.csro_status_label.setText("CSRO calculation done.")
+        x = result
+        self.update_plot(x)
+
+    def update_plot(self, x):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        labels = list(x.keys())
+        values = list(x.values())
+        ax.bar(labels, values, color='blue')
+        ax.set_ylabel("CSRO")
+        ax.set_title('CSRO Parameters')
         self.canvas.draw()
 
 
