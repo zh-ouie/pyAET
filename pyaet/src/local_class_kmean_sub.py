@@ -20,7 +20,7 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
     StopCri = classify_info.get('StopCri', 5)
     half_size = classify_info.get('half_size', 1)
     O_Ratio = classify_info.get('O_Ratio', 1)
-    Radius = classify_info.get('Radius', 15)
+    radius = classify_info.get('radius', 10)
     SPHyn = classify_info.get('SPHyn', True)
 
 
@@ -41,7 +41,7 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
         for i in range(curr_model.shape[1]):
             curr_atompos = curr_model[:, i]
             Dist = np.linalg.norm(curr_model.T - curr_atompos, axis=1)
-            BallInd = (Dist != 0) & (Dist < Radius)
+            BallInd = (Dist != 0) & (Dist < radius)
 
             R_arr = np.zeros(num_types)
             for j in range(num_types):

@@ -207,6 +207,13 @@ class MyApp(QMainWindow):
         class_param_species_layout.addWidget(class_param_species_edit)
         self.class_layout.addLayout(class_param_species_layout)
 
+        class_param_radius_layout = QHBoxLayout()
+        class_param_radius_label = QLabel(f'Local Radius (Å):')
+        class_param_radius_edit = QLineEdit('10')
+        class_param_radius_layout.addWidget(class_param_radius_label)
+        class_param_radius_layout.addWidget(class_param_radius_edit)
+        self.class_layout.addLayout(class_param_radius_layout)
+
         class_output_layout = QHBoxLayout()
         class_output_label = QLabel(f'Output filename:')
         class_output_edit = QLineEdit('output_classification')
@@ -222,6 +229,7 @@ class MyApp(QMainWindow):
                                               self.class_on_click_run(class_recon_file_edit.text(),
                                                                       class_model_file_edit.text(),
                                                                       class_param_species_edit.text(),
+                                                                      class_param_radius_edit.text(),
                                                                       class_output_edit.text())
                                               )
         self.class_layout.addWidget(self.class_run_button)
@@ -449,11 +457,12 @@ class MyApp(QMainWindow):
         self.tracing_run_button.setDisabled(False)
         self.tracing_status_label.setText(result)
 
-    def class_on_click_run(self, reconstruction_filename, model_filename, num_species, output_fn):
+    def class_on_click_run(self, reconstruction_filename, model_filename, num_species, local_radius, output_fn):
         param = {}
         param['reconstruction_filename'] = reconstruction_filename
         param['model_filename'] = model_filename
         param['num_species'] = int(float(num_species))
+        param['local_radius'] = float(local_radius)
         param['output_fn'] = output_fn
         param['job_type'] = 3  # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
@@ -525,8 +534,9 @@ class WorkerThread(QThread):
             reconstruction_filename = self.param['reconstruction_filename']
             model_filename = self.param['model_filename']
             num_species = self.param['num_species']
+            local_radius = self.param['local_radius']
             output_fn = self.param['output_fn']
-            main_classification(reconstruction_filename, model_filename, num_species, output_fn)
+            main_classification(reconstruction_filename, model_filename, num_species, local_radius, output_fn)
             result = 'Classification done.'
         if job_type == 4:  #run position refinement
             pj_filename = self.param['pj_filename']

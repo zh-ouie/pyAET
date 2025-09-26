@@ -7,7 +7,7 @@ from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 
-def main_classification(Dsetvol_file_path, new_model_file_path, num_species, output_fn):
+def main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn):
     """
     The main classification function.
 
@@ -15,6 +15,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, out
         Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
         new_model_file_path (str): File path. Atomic positions, in the shape of (3, 18356).
         num_species (int): Number of atom species.
+        local_radius (float): The radius of sphere in local classification. default 10.
         output_fn (str): The output .npy filename, Ex: 'localC_res'.
 
     Returns:
@@ -87,7 +88,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, out
     # Apply local k-mean classification on the reconstruction by the results of global k-mean
     temp_class_atomtype = global_class_atomtype
 
-    classify_info['Radius'] = 10 / 0.347 * 3  # Radius is 10A
+    classify_info['radius'] = local_radius / 0.347 * 3  # Radius is 10A
 
     # When there are 5 iterations with the same number of atoms flipped (back and forth),
     # the iteration will be stopped
@@ -119,6 +120,7 @@ np.save('MG_reconstruction_volume.npy', data)
 # new_model_file_path = 'input/traced_model_inPixel.npy'
 # Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
 # num_species = 3
+# local_radius = 10
 # output_fn='localC_res'
 #
-# main_classification(Dsetvol_file_path, new_model_file_path, num_species, output_fn)
+# main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn)
