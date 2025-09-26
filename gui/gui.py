@@ -142,6 +142,13 @@ class MyApp(QMainWindow):
         tracing_param_max_num_th_layout.addWidget(tracing_param_max_num_th_edit)
         self.tracing_layout.addLayout(tracing_param_max_num_th_layout)
 
+        tracing_param_min_atom_dist_layout = QHBoxLayout()
+        tracing_param_min_atom_dist_label = QLabel(f'Min Atom Distance (Å):')
+        tracing_param_min_atom_dist_edit = QLineEdit('2')
+        tracing_param_min_atom_dist_layout.addWidget(tracing_param_min_atom_dist_label)
+        tracing_param_min_atom_dist_layout.addWidget(tracing_param_min_atom_dist_edit)
+        self.tracing_layout.addLayout(tracing_param_min_atom_dist_layout)
+
         tracing_output_layout = QHBoxLayout()
         tracing_output_label = QLabel(f'Output filename:')
         tracing_output_edit = QLineEdit('output_tracing')
@@ -156,6 +163,7 @@ class MyApp(QMainWindow):
         self.tracing_run_button.clicked.connect(lambda:
                                                 self.tracing_on_click_run(tracing_recon_file_edit.text(),
                                                                           tracing_param_max_num_th_edit.text(),
+                                                                          tracing_param_min_atom_dist_edit.text(),
                                                                           tracing_output_edit.text())
                                                 )
         self.tracing_layout.addWidget(self.tracing_run_button)
@@ -422,10 +430,11 @@ class MyApp(QMainWindow):
         self.recon_run_button.setDisabled(False)
         self.recon_status_label.setText(result)
 
-    def tracing_on_click_run(self, reconstruction_filename, max_num_th, output_fn):
+    def tracing_on_click_run(self, reconstruction_filename, max_num_th, min_dist, output_fn):
         param = {}
         param['reconstruction_filename'] = reconstruction_filename
         param['max_num_th'] = int(float(max_num_th))
+        param['min_dist'] = float(min_dist)
         param['output_fn'] = output_fn
         param['job_type'] = 2  # 1:reconstruction, 2: tracing, 3: classification, 4: position refinement
 
@@ -508,8 +517,9 @@ class WorkerThread(QThread):
         if job_type == 2:  #run tracing
             reconstruction_filename = self.param['reconstruction_filename']
             max_num_th = self.param['max_num_th']
+            min_dist = self.param['min_dist']
             output_fn = self.param['output_fn']
-            main_polynomial_tracing(reconstruction_filename, max_num_th, output_fn)
+            main_polynomial_tracing(reconstruction_filename, max_num_th, min_dist, output_fn)
             result = 'Tracing done.'
         if job_type == 3:  #run classification
             reconstruction_filename = self.param['reconstruction_filename']

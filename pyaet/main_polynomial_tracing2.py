@@ -13,13 +13,14 @@ from pyaet.src.calc_dX_dY_dZ_Rogers import calc_dX_dY_dZ_Rogers
 from pyaet.src.initial_class_kmean import initial_class_kmean
 
 
-def main_polynomial_tracing(Dsetvol_file_path, max_num_th, output_fn):
+def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     """
     The main polynomial tracing function.
 
     Args:
         Dsetvol_file_path (str): File path. Reconstructed volume, in the shape of (300, 300, 300).
         max_num_th (int): The maximum atom numbers for tracing.
+        min_dist (float): The minimum inter-atomic distance. In units of A.
         output_fn (str): The output .npy filename, Ex: 'initial_traced_model'.
 
     Returns:
@@ -46,7 +47,8 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, output_fn):
     crit_iter = 7
     Th = 1
     Res = 0.347 / 3
-    min_dist = 2 / Res
+    # min_dist = 2 / Res
+    min_dist = min_dist / Res
     search_rad = 3
 
     # Upsample the reconstruction matrix by 3*3*3 using linear interpolation
@@ -294,6 +296,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, output_fn):
 # Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'
 # max_num_th=100000
 # output_fn='initial_traced_model'
+# min_dist = 2
 
 # # Call the main function
-# main_polynomial_tracing(Dsetvol_file_path, max_num_th，output_fn)
+# main_polynomial_tracing(Dsetvol_file_path, max_num_th，min_dist, output_fn)
