@@ -22,9 +22,11 @@ def calc_boo(stru_fn, cutoff=4.0, output_fn=None):
 
     sys.find.neighbors(method='cutoff', cutoff=cutoff)
 
-    boo = sys.calculate.steinhardt_parameter([4, 6])
+    q4, q6 = sys.calculate.steinhardt_parameter([4, 6], averaged=True)
+
+    boo = np.sqrt(q4**2 + q6**2) / np.sqrt(0.190941**2 + 0.574524**2)
 
     output_file_path = os.path.join(os.path.dirname(stru_fn), output_fn)
-    np.savetxt(output_file_path+".txt",np.transpose([boo[0], boo[1]]), fmt='%f')
+    np.savetxt(output_file_path+".txt",np.transpose([q4, q6]), fmt='%f')
 
-    return boo[0], boo[1]
+    return q4, q6

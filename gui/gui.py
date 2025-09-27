@@ -654,9 +654,9 @@ class PDFCalculator(QWidget):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         ax.plot(x, y)
-        ax.set_xlabel(r"r ($\mathrm{\AA}$)")
-        ax.set_ylabel(r"g")
-        ax.set_title('PDF')
+        ax.set_xlabel(r"$r$ ($\mathrm{\AA}$)")
+        ax.set_ylabel(r"$g(r)$")
+        ax.set_title('RDF')
         self.canvas.draw()
 
 
@@ -749,11 +749,25 @@ class BOOCalculator(QWidget):
         ax = self.figure.add_subplot(111)
         xy = np.vstack([x, y])
         z = gaussian_kde(xy)(xy)
-        sc = ax.scatter(x, y, c=z, s=30, cmap='jet')
+        idx = z.argsort()
+        x, y, z = x[idx], y[idx], z[idx]
+
+        sc = ax.scatter(x, y, c=z, s=30, cmap='jet', edgecolors='none')
         ax.set_xlabel("$Q_4$")
         ax.set_ylabel("$Q_6$")
         ax.set_title('BOO Parameters')
-        self.figure.colorbar(sc, ax=ax)
+
+        fcc = [0.190941, 0.574524]
+        bcc = [0.0363696, 0.510688]
+        hcp = [0.09722, 0.484762]
+        ax.scatter(fcc[0], fcc[1], c='k', s=50)
+        ax.scatter(bcc[0], bcc[1], c='k', s=50)
+        ax.scatter(hcp[0], hcp[1], c='k', s=50)
+        ax.text(fcc[0] - 0.017, fcc[1]-0.028, 'fcc', fontsize=12)
+        ax.text(bcc[0] + 0.007, bcc[1], 'bcc', fontsize=12)
+        ax.text(hcp[0] + 0.007, hcp[1], 'hcp', fontsize=12)
+
+        self.figure.colorbar(sc, ax=ax, label='Number of atoms')
         self.canvas.draw()
 
 
