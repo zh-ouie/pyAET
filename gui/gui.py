@@ -15,6 +15,7 @@ from pyaet.main_position_refinement4 import main_position_refinement
 from pyaet.analysis.calc_pdf import calc_pdf
 from pyaet.analysis.calc_boo import calc_boo
 from pyaet.analysis.calc_csro import calc_csro
+from pyaet.analysis.calc_voronoi import calc_voronoi
 
 
 class MyApp(QMainWindow):
@@ -370,6 +371,11 @@ class MyApp(QMainWindow):
         csro_calculator_action.triggered.connect(self.open_csro_calculator)
         analysis_menu.addAction(csro_calculator_action)
 
+        # Add "Voronoi Calculator" action
+        voronoi_calculator_action = QAction('Voronoi Index Calculator', self)
+        voronoi_calculator_action.triggered.connect(self.open_voronoi_calculator)
+        analysis_menu.addAction(voronoi_calculator_action)
+
         # initial window size.
         self.setGeometry(200, 200, 500, 500)
         self.setWindowTitle('Atomic Electron Tomography')
@@ -385,6 +391,10 @@ class MyApp(QMainWindow):
     def open_csro_calculator(self):
         self.csro_calculator = CSROCalculator()
         self.csro_calculator.show()
+
+    def open_voronoi_calculator(self):
+        self.voronoi_calculator = VoronoiCalculator()
+        self.voronoi_calculator.show()
 
     def display_page(self, index):
         self.stack.setCurrentIndex(index)
@@ -562,6 +572,11 @@ class WorkerThread(QThread):
             cutoff = self.param['cutoff']
             output_fn = self.param['output_fn']
             result = calc_csro(model_filename, cutoff=cutoff, output_fn=output_fn)
+        if job_type == 13:  #run voronoi calculator
+            model_filename = self.param['model_filename']
+            # cutoff = self.param['cutoff']
+            output_fn = self.param['output_fn']
+            result = calc_voronoi(model_filename, output_fn=output_fn)
 
         self.finished_signal.emit(result)
 
@@ -635,7 +650,7 @@ class PDFCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['rmax'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 10  # 10:pdf, 11:boo, 12:csro
+        param['job_type'] = 10  # 10:pdf, 11:boo, 12:csro, 13:voronoi
 
         self.pdf_thread = WorkerThread(param)
 
@@ -657,6 +672,7 @@ class PDFCalculator(QWidget):
         ax.set_xlabel(r"$r$ ($\mathrm{\AA}$)")
         ax.set_ylabel(r"$g(r)$")
         ax.set_title('RDF')
+        self.figure.tight_layout()
         self.canvas.draw()
 
 
@@ -729,7 +745,7 @@ class BOOCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['cutoff'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 11  # 10:pdf, 11:boo, 12:csro
+        param['job_type'] = 11  # 10:pdf, 11:boo, 12:csro, 13:voronoi
 
         self.boo_thread = WorkerThread(param)
 
@@ -768,6 +784,7 @@ class BOOCalculator(QWidget):
         ax.text(hcp[0] + 0.007, hcp[1], 'hcp', fontsize=12)
 
         self.figure.colorbar(sc, ax=ax, label='Number of atoms')
+        self.figure.tight_layout()
         self.canvas.draw()
 
 
@@ -840,7 +857,7 @@ class CSROCalculator(QWidget):
         param['model_filename'] = str(model_filename)
         param['cutoff'] = float(rmax)
         param['output_fn'] = output_fn
-        param['job_type'] = 12  # 10:pdf, 11:boo, 12:csro
+        param['job_type'] = 12  # 10:pdf, 11:boo, 12:csro, 13:voronoi
 
         self.csro_thread = WorkerThread(param)
 
@@ -863,8 +880,104 @@ class CSROCalculator(QWidget):
         ax.bar(labels, values, color='blue')
         ax.set_ylabel("CSRO")
         ax.set_title('CSRO Parameters')
+        self.figure.tight_layout()
         self.canvas.draw()
 
+
+class VoronoiCalculator(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Voronoi Index Calculator')
+        self.setGeometry(100, 100, 800, 800)
+
+        self.voronoi_layout = QVBoxLayout()
+
+        voronoi_calculator_model_file_layout = QHBoxLayout()
+        voronoi_calculator_model_file_label = QLabel('Input Model File Path:')
+        voronoi_calculator_model_file_edit = QLineEdit()
+        voronoi_calculator_model_file_button = QPushButton('Browse')
+        voronoi_calculator_model_file_button.clicked.connect(lambda _, fe=voronoi_calculator_model_file_edit: self.select_file(fe))
+        voronoi_calculator_model_file_layout.addWidget(voronoi_calculator_model_file_label)
+        voronoi_calculator_model_file_layout.addWidget(voronoi_calculator_model_file_edit)
+        voronoi_calculator_model_file_layout.addWidget(voronoi_calculator_model_file_button)
+        self.voronoi_layout.addLayout(voronoi_calculator_model_file_layout)
+
+        # voronoi_calculator_rmax_layout = QHBoxLayout()
+        # voronoi_calculator_rmax_label = QLabel(f'Cutoff (Å):')
+        # voronoi_calculator_rmax_edit = QLineEdit('4.0')
+        # voronoi_calculator_rmax_layout.addWidget(voronoi_calculator_rmax_label)
+        # voronoi_calculator_rmax_layout.addWidget(voronoi_calculator_rmax_edit)
+        # self.voronoi_layout.addLayout(voronoi_calculator_rmax_layout)
+
+        voronoi_calculator_output_layout = QHBoxLayout()
+        voronoi_calculator_output_label = QLabel(f'Output filename:')
+        voronoi_calculator_output_edit = QLineEdit('output_voronoi')
+        voronoi_calculator_output_layout.addWidget(voronoi_calculator_output_label)
+        voronoi_calculator_output_layout.addWidget(voronoi_calculator_output_edit)
+        self.voronoi_layout.addLayout(voronoi_calculator_output_layout)
+
+        self.voronoi_status_label = QLabel("Please click the button below to calculate Voronoi polyhedra indices.")
+        self.voronoi_layout.addWidget(self.voronoi_status_label)
+
+        self.voronoi_calculator_run_button = QPushButton('Calculate Voronoi Index')
+        self.voronoi_calculator_run_button.clicked.connect(lambda:
+                                                        self.plot_voronoi_on_click_run(voronoi_calculator_model_file_edit.text(),
+                                                                                   voronoi_calculator_output_edit.text())
+                                                       )
+        self.voronoi_layout.addWidget(self.voronoi_calculator_run_button)
+
+        self.voronoi_thread = None
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.voronoi_layout.addWidget(self.canvas)
+
+        # Add Matplotlib toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.voronoi_layout.addWidget(self.toolbar)
+
+        self.setLayout(self.voronoi_layout)
+
+    def select_file(self, line_edit):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Model Files (*.xyz)")
+        if file_path:  # 确保用户选择了文件
+            line_edit.setText(file_path)  # 更新文本框内容
+            print(file_path)
+
+    def plot_voronoi_on_click_run(self, model_filename, output_fn):
+        param = {}
+        param['model_filename'] = str(model_filename)
+        # param['cutoff'] = float(rmax)
+        param['output_fn'] = output_fn
+        param['job_type'] = 13  # 10:pdf, 11:boo, 12:voronoi, 13:voronoi
+
+        self.voronoi_thread = WorkerThread(param)
+
+        self.voronoi_thread.finished_signal.connect(self.voronoi_on_thread_finished)
+        self.voronoi_calculator_run_button.setDisabled(True)
+        self.voronoi_status_label.setText('Start calculating Voronoi polyhedra indices,  please wait...')
+        self.voronoi_thread.start()
+
+    def voronoi_on_thread_finished(self, result):
+        self.voronoi_calculator_run_button.setDisabled(False)
+        self.voronoi_status_label.setText("Voronoi index calculation done.")
+        x, y = result[0], result[1]
+        self.update_plot(x, y)
+
+    def update_plot(self, x, y):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        # only plot top 10.
+        ax.bar(x[:10], y[:10], color='tab:blue', edgecolor='black', linewidth=0.8)
+        ax.set_xlabel("Voronoi index")
+        ax.set_ylabel("Fraction")
+        ax.set_title('Top 10 Voronoi indices')
+        ax.set_xticklabels(x[:10], rotation=45, ha='right')
+        self.figure.tight_layout()
+        self.canvas.draw()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
