@@ -16,7 +16,10 @@ from pyaet.analysis.calc_pdf import calc_pdf
 from pyaet.analysis.calc_boo import calc_boo
 from pyaet.analysis.calc_csro import calc_csro
 from pyaet.analysis.calc_voronoi import calc_voronoi
+import warnings
 
+# 抑制sipPyTypeDict弃用警告
+warnings.filterwarnings("ignore", category=DeprecationWarning, message="sipPyTypeDict")
 
 class MyApp(QMainWindow):
     def __init__(self):
@@ -765,8 +768,8 @@ class BOOCalculator(QWidget):
         ax = self.figure.add_subplot(111)
         xy = np.vstack([x, y])
         z = gaussian_kde(xy)(xy)
-        idx = z.argsort()
-        x, y, z = x[idx], y[idx], z[idx]
+        # idx = z.argsort()
+        # x, y, z = x[idx], y[idx], z[idx]
 
         sc = ax.scatter(x, y, c=z, s=30, cmap='jet', edgecolors='none')
         ax.set_xlabel("$Q_4$")
@@ -869,17 +872,38 @@ class CSROCalculator(QWidget):
     def csro_on_thread_finished(self, result):
         self.csro_calculator_run_button.setDisabled(False)
         self.csro_status_label.setText("CSRO calculation done.")
-        x = result
-        self.update_plot(x)
+        x, y = result[0], result[1]
+        self.update_plot(x, y)
 
-    def update_plot(self, x):
+    def update_plot(self, x, y):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        labels = list(x.keys())
-        values = list(x.values())
-        ax.bar(labels, values, color='blue')
-        ax.set_ylabel("CSRO")
+        N = len(x)
+        atom_labels = ['Atom{}'.format(i) for i in range(1, N+1)]
+        im = ax.imshow(y, cmap = 'RdBu_r', vmin = -1, vmax = 1)
+
+        # Set ticks and labels
+        ax.set_xticks(range(len(atom_labels)))
+        ax.set_xticklabels(atom_labels)
+        ax.set_yticks(range(len(atom_labels)))
+        ax.set_yticklabels(atom_labels)
+
+        # add dashed lines.
+        ax.set_xticks(np.arange(0.5, N-1, 1), minor=True)
+        ax.set_yticks(np.arange(0.5, N-1, 1), minor=True)
+        ax.grid(which="minor", color="black", linestyle='--', linewidth=1.0)
+
+        ax.set_xlabel('Atom Type')
+        ax.set_ylabel('Atom Type')
         ax.set_title('CSRO Parameters')
+
+        # Add value annotations
+        for i in range(len(atom_labels)):
+            for j in range(len(atom_labels)):
+                ax.text(j, i, f'{y[i, j]:.2f}',
+                        ha='center', va='center', fontsize=13, color='black')
+
+        self.figure.colorbar(im, ax=ax, label='Warren-Cowley Parameter')
         self.figure.tight_layout()
         self.canvas.draw()
 

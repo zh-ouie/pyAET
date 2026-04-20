@@ -6,6 +6,8 @@ from pyaet.src.initial_class_kmean_sub import initial_class_kmean_sub
 from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
+from pyaet.src.io_helper import read_mat_file
+
 
 def main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn):
     """
@@ -22,8 +24,17 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
         Atom types after classification. In the shape of (18356,)
     """
     # Load traced atomic positions and reconstruction volume
-    new_model = np.load(new_model_file_path)
-    Dsetvol = np.load(Dsetvol_file_path)
+    # new_model = np.load(new_model_file_path)
+    if new_model_file_path.endswith('.mat'):
+        new_model = read_mat_file(new_model_file_path)
+    else:
+        new_model = np.load(new_model_file_path)
+
+    # Dsetvol = np.load(Dsetvol_file_path)
+    if Dsetvol_file_path.endswith('.mat'):
+        Dsetvol = read_mat_file(Dsetvol_file_path)
+    else:
+        Dsetvol = np.load(Dsetvol_file_path)
 
     # new_model = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/traced_model_inPixel.npy')  # ,allow_pickle=True
     # Dsetvol = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
@@ -32,6 +43,12 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
     # Dsetvol_full = np.load(Dsetvol_file_path)
     # new_model = new_model_full[:,2000:5000]
     # Dsetvol = Dsetvol_full[199:230,199:230,199:230]
+
+    # new_model = new_model[:,2000:5000]
+    # Dsetvol = Dsetvol[199:230,199:230,199:230]
+
+    # print(new_model.shape)
+    # print(Dsetvol.shape)
 
     output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
@@ -67,7 +84,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
     classify_info = {
         'num_species': num_species,
         'half_size': 3,
-        'plot_half_size': 1,
+        'plot_half_size': 3,
         'O_Ratio': 1,
         'SPHyn': True,
         'PLOT_YN': False,
@@ -122,5 +139,5 @@ np.save('MG_reconstruction_volume.npy', data)
 # num_species = 3
 # local_radius = 10
 # output_fn='localC_res'
-#
+
 # main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn)

@@ -6,6 +6,8 @@ from pyaet.src.my_fft import my_fft
 from pyaet.src.cropped_out import cropped_out
 from pyaet.splinterp.splinterp3 import mex_function3
 from pyaet.splinterp.splinterp2 import mex_function2
+from pyaet.splinterp_cpp import mex_function3
+from pyaet.splinterp_cpp import mex_function2
 
 def reconstruct(obj):
     projections = obj.InputProjections
@@ -47,6 +49,7 @@ def reconstruct(obj):
         parforArg = False
 
     for iter in range(iterations):
+        print(f"iteration {iter}")
         recK = my_fft(rec_big)
 
         # compute rotated projections via Fourier Slice Theorem

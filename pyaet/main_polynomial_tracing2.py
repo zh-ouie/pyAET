@@ -11,7 +11,7 @@ from pyaet.src.my_round import my_round_num
 from pyaet.src.calculate_3D_polynomial_Rogers import calculate_3D_polynomial_Rogers
 from pyaet.src.calc_dX_dY_dZ_Rogers import calc_dX_dY_dZ_Rogers
 from pyaet.src.initial_class_kmean import initial_class_kmean
-
+from pyaet.src.io_helper import read_mat_file
 
 def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     """
@@ -37,8 +37,12 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     # Dsetvol = np.load(Dsetvol_file_path)
 
     # Dsetvol_full = np.load('/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy')
-    Dsetvol_full = np.load(Dsetvol_file_path)
-    Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
+    # Dsetvol = Dsetvol_full[199:230, 199:230, 199:230]
+
+    if Dsetvol_file_path.endswith('.mat'):
+        Dsetvol = read_mat_file(Dsetvol_file_path)
+    else:
+        Dsetvol = np.load(Dsetvol_file_path)
 
     output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
@@ -294,9 +298,11 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     return
 
 # Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'
-# max_num_th=100000
-# output_fn='initial_traced_model'
-# min_dist = 2
+Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/2reconstruction_sample.mat'
 
-# # Call the main function
-# main_polynomial_tracing(Dsetvol_file_path, max_num_th，min_dist, output_fn)
+max_num_th=300
+output_fn='initial_traced_model'
+min_dist = 2
+
+# Call the main function
+main_polynomial_tracing(Dsetvol_file_path, max_num_th,min_dist, output_fn)

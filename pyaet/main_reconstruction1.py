@@ -1,5 +1,8 @@
 import os
 import numpy as np
+import time
+import psutil
+import tracemalloc
 from pyaet.resire import RESIRE_Reconstructor
 from pyaet.resire.reconstruct import reconstruct
 
@@ -19,6 +22,22 @@ def main_reconstruction(projections_file_path, angles_file_path, resire_param, o
         resire_param (dist): The dictionary to update RESIRE parameters.
         output_fn (str): The output python pickle filename and .npy filename, Ex: 'reconstruction_volume'. Write in the same folder of input projection file.
     """
+    print("check input parameter:")
+    print("projections_file_path:", projections_file_path)
+    print("angles_file_path:", angles_file_path)
+    print("resire_param:", resire_param)
+    print("output_fn:", output_fn)
+
+    # Start timing and memory tracking
+    start_time = time.time()
+    tracemalloc.start()
+    process = psutil.Process(os.getpid())
+    start_memory = process.memory_info().rss / 1024 / 1024  # Initial memory usage (MB)
+    
+    #print time
+    print(f"Start running - Memory: {start_memory:.1f} MB")
+    print("==============")
+
     # Define file paths
     # pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_projections_amorphous.npy'
     # angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_angles_amorphous.npy'
@@ -65,17 +84,30 @@ def main_reconstruction(projections_file_path, angles_file_path, resire_param, o
 
     # Get the reconstruction result
     Reconstruction = RESIRE.reconstruction
-
+    
+    # End timing and memory tracking
+    end_time = time.time()
+    current_memory = process.memory_info().rss / 1024 / 1024  # Current memory usage (MB)
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    
+    # Calculate and print execution time and memory usage
+    execution_time = end_time - start_time
+    memory_used = current_memory - start_memory
+    print(f"Execution time: {execution_time:.2f} seconds")
+    print(f"Memory usage: Current increase {memory_used:.2f} MB, Peak {peak/1024/1024:.2f} MB")
+    
     # Save results
     np.save(output_file_path+".npy", Reconstruction)
     RESIRE.save_results()
+
     print("reconstruction finished.")
     return
 
 # pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_projections_amorphous.npy'
 # angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_angles_amorphous.npy'
 # output_fn = 'reconstruction_volume'
-#
+# #
 # resire_param = {
 #     "oversampling_ratio": 3,
 #     "num_iterations": 2,
@@ -87,5 +119,5 @@ def main_reconstruction(projections_file_path, angles_file_path, resire_param, o
 #     "save_temp": True,
 #     "save_loopLength": 5
 # }
-#
+
 # main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)

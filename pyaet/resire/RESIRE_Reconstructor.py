@@ -8,10 +8,13 @@ This code defines the resire class in Python, mirroring the properties and metho
 
 import numpy as np
 from scipy.ndimage import map_coordinates
+import scipy.io as io
 import os
 import pickle
 from pyaet.resire.interp_pj_realspace import interp_pj_realspace
+from pyaet.src.io_helper import read_mat_file
 
+# 在RESIRE_Reconstructor类中修改read_files方法
 class RESIRE_Reconstructor:
 
     def __init__(self):
@@ -68,13 +71,23 @@ class RESIRE_Reconstructor:
 
     def read_files(self):
         if self.file_exist(self.filename_Projections):
-            self.InputProjections = np.load(self.filename_Projections)
+            if self.filename_Projections.endswith('.mat'):
+                self.InputProjections = read_mat_file(self.filename_Projections)
+            else:
+                self.InputProjections = np.load(self.filename_Projections)
         else:
             raise Exception('RESIRE: Projections file does not exist!')
         if self.file_exist(self.filename_Angles):
-            self.InputAngles = np.load(self.filename_Angles)
+            if self.filename_Angles.endswith('.mat'):
+                self.InputAngles = read_mat_file(self.filename_Angles)
+            else:
+                self.InputAngles = np.load(self.filename_Angles)
         else:
             raise Exception('RESIRE: Angles file does not exist!')
+        
+        print("self.InputProjections.shape", self.InputProjections.shape)
+        print("self.InputAngles.shape", self.InputAngles.shape)
+
 
     def check_prepare_data(self):
         # set number of projections
@@ -106,7 +119,9 @@ class RESIRE_Reconstructor:
     def run_gridding(self):
         print('RESIRE: Interpolate real space projections...\n\n')
         if self.gridding_method == 1:
+            print("start interp_pj_realspace")
             interp_pj_realspace(self)
+            print("end interp_pj_realspace")
 
     def clear_calc_variables(self):
         self.InputProjections = None

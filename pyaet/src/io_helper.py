@@ -92,3 +92,24 @@ def load_pickle_object(file_path):
         obj = pickle.load(file)
     return obj
 
+
+def read_mat_file(file_path):
+    """
+    Load data from a MATLAB .mat file and return the value associated with the first non-metadata key.
+
+    Args:
+        file_path (str): The file path to the .mat file.
+
+    Returns:
+        ndarray: The data associated with the first non-metadata key in the .mat file.
+
+    Raises:
+        Exception: If no valid non-metadata keys are found in the .mat file.
+    """
+    data = loadmat(file_path)
+    data_keys = [key for key in data.keys() if not key.startswith('__')]
+    if data_keys:
+        return data[data_keys[0]]
+    else:
+        raise Exception(f'No valid data found in .mat file: {file_path}')
+

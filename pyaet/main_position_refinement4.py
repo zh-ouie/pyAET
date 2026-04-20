@@ -7,6 +7,7 @@ from pyaet.src.gradient_fixHB_XYZ import gradient_fixHB_XYZ
 from pyaet.src.cal_Bproj_2type import cal_Bproj_2type
 from pyaet.src.my_paddzero import my_paddzero
 from scipy.optimize import least_squares
+from pyaet.src.io_helper import read_mat_file 
 
 # Define the fatom_vector and fparameters functions here
 
@@ -37,10 +38,30 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
     # model_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4model.npy'
     # atoms_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4atoms.npy'
 
-    projections = np.load(projections_file_path)
-    angles = np.load(angles_file_path)
-    model = np.load(model_file_path)
-    atoms = np.load(atoms_file_path)
+    # projections = np.load(projections_file_path)
+    if projections_file_path.endswith('.mat'):
+        projections = read_mat_file(projections_file_path)
+    else:
+        projections = np.load(projections_file_path)
+
+    # angles = np.load(angles_file_path)
+    if angles_file_path.endswith('.mat'):
+        angles = read_mat_file(angles_file_path)
+    else:
+        angles = np.load(angles_file_path)
+
+    # model = np.load(model_file_path)
+    if model_file_path.endswith('.mat'):
+        model = read_mat_file(model_file_path)
+    else:
+        model = np.load(model_file_path)
+
+    # atoms = np.load(atoms_file_path)
+    if atoms_file_path.endswith('.mat'):
+        atoms = read_mat_file(atoms_file_path)
+    else:
+        atoms = np.load(atoms_file_path)
+
     output_file_path = os.path.join(os.path.dirname(projections_file_path), output_fn)
 
     # Process the data
@@ -125,5 +146,5 @@ def main_position_refinement(projections_file_path, angles_file_path, model_file
 # atoms_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/4atoms.npy'
 # num_iterations = 10
 # output_fn = 'model_refined_res'
-#
+
 # main_position_refinement(projections_file_path, angles_file_path, model_file_path, atoms_file_path, num_iterations, output_fn)

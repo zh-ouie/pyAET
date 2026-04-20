@@ -58,11 +58,11 @@ def calc_voronoi(stru_fn, output_fn=None):
     fractions = [count / len(voronoi_indices) for count in [item[1] for item in sorted_items]]
 
     output_file_path = os.path.join(os.path.dirname(stru_fn), output_fn)
-    data = np.array(
+    formatted_data = np.array(
         list(zip(types, fractions)),
         dtype=[('index', 'U12'), ('fraction', 'f4')]
     )
-    np.savetxt(output_file_path+".txt", data, fmt='%-12s %.5f')
+    np.savetxt(output_file_path+".txt", formatted_data, fmt='%-12s %.5f')
 
     return types, fractions
 
