@@ -1,61 +1,66 @@
 import numpy as np
+from scipy.optimize import optimize
+from pyaet.src.create_box import create_box
+from pyaet.src.fit_gauss3D_PD import fit_gauss3D_PD
 
-def initial_class_L1norm(box_arr, mean_box, O_Ratio, halfSize, SPHyn):
+
+def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
     """
-    Initial classification using L1-norm.
+    Perform L1 norm classification to distinguish atoms from non-atoms.
 
     Parameters:
-    - box_arr (numpy.ndarray): 4D array of boxes.
-    - mean_box (numpy.ndarray): Mean box.
-    - O_Ratio (float): Oversampling ratio.
-    - halfSize (int): Half the size of the box.
-    - SPHyn (int): Spherical region flag.
+    - box_arr (numpy.ndarray): Array of boxes. 4D array of boxes.
+    - mean_box (numpy.ndarray): Mean box data.
+    - O_Ratio (float): Ratio for oversampling.
+    - half_size (int): Half size of the box.
+    - SPHyn (bool): Spherical condition.
 
     Returns:
     - atomtype (numpy.ndarray): Atom types.
     - Rs (numpy.ndarray): R-factors.
     """
-
-    atomtype = -np.ones(box_arr.shape[3])
+    atomtype = -1 * np.ones(box_arr.shape[3])
     Rs = np.zeros((2, box_arr.shape[3]))
 
     ds = 1 / O_Ratio
 
-    XX, YY, ZZ = np.meshgrid(np.arange(-halfSize, halfSize + ds, ds),
-                             np.arange(-halfSize, halfSize + ds, ds),
-                             np.arange(-halfSize, halfSize + ds, ds))
+    XX, YY, ZZ = np.meshgrid(
+        np.arange(-half_size, half_size + ds, ds),
+        np.arange(-half_size, half_size + ds, ds),
+        np.arange(-half_size, half_size + ds, ds)
+    )
 
     if SPHyn:
-        useInd = np.where(XX**2 + YY**2 + ZZ**2 <= (halfSize + 0.5 * ds)**2)
+        useInd = np.where(((XX ** 2 + YY ** 2 + ZZ ** 2) <= (half_size + 0.5 * ds) ** 2).flatten())[0]
     else:
-        useInd = np.arange(XX.size)
+        useInd = np.arange(len(XX))
 
-    box2coordinates = create_box(box_arr.shape[0])
+    box_coordinates = create_box(box_arr.shape[0])
 
-    fit_param_init = [0, np.max(mean_box), 0, 0, 0, 0.5, 0.5, 0.5, 0, 0, 0]
-    fixed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    fit_param_init = [0, np.nanmax(mean_box), 0, 0, 0, 0.5, 0.5, 0.5, 0, 0, 0]
+    fixed = np.full(11, False, dtype=bool)
     lb = [0, 0, -2, -2, -2, 0, 0, 0, -np.pi, 0, -np.pi]
     ub = [np.inf, np.inf, 2, 2, 2, np.inf, np.inf, np.inf, np.pi, np.pi, np.pi]
 
-    # Initialize variables to store fit results
-    fit_result = np.zeros((box_arr.shape[3], len(fit_param_init)))
+    if half_size == 0:
+        fit_result = 0
+    else:
+        fit_result = fit_gauss3D_PD(fit_param_init, box_coordinates, mean_box, fixed, lb, ub)
+
+    print(f'fitted constant = {fit_result[0]:.2f}')
 
     for ind in range(box_arr.shape[3]):
-        DataBox = box_arr[:, :, :, ind]
+        data_box = box_arr[:, :, :, ind]
+        zero_box = np.zeros_like(mean_box, dtype=float) + fit_result[0]
 
-        ZeroBox = np.zeros(mean_box.shape) + fit_result[0]
-
-        # Calculate squared deviation (= non-normalized r-factor)
-        R1 = np.sum(np.abs(DataBox[useInd] - ZeroBox[useInd]))
-        R2 = np.sum(np.abs(DataBox[useInd] - mean_box[useInd]))
+        R1 = np.sum(np.abs(data_box[useInd] - zero_box.flatten(order='F')[useInd]))
+        R2 = np.sum(np.abs(data_box[useInd] - mean_box.flatten(order='F')[useInd]))
         Rs[0, ind] = R1
         Rs[1, ind] = R2
 
         if R1 > R2:
-            # This is an atom, add to the density matrix
             atomtype[ind] = 1
         else:
-            # Not an atom, add background to the density matrix
             atomtype[ind] = 0
 
     print(f'number of inserted atoms: {np.sum(atomtype == 1)} atoms')
@@ -63,7 +68,4 @@ def initial_class_L1norm(box_arr, mean_box, O_Ratio, halfSize, SPHyn):
 
     return atomtype, Rs
 
-# Define create_box function
-def create_box(size):
-    # Your create_box function implementation here
-    pass
+# Note: You will need to implement `fit_gauss3D_PD` based on your fitting method.

@@ -3,3 +3,4 @@ python >=3.7
 #rever
 numpy
 matplotlib
+#opencv-python #conda install -c conda-forge opencv  OR  pip install opencv-python

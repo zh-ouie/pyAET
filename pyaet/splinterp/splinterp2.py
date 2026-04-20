@@ -1,41 +1,60 @@
 import numpy as np
-import splinterp
 
-def mexFunction(nlhs, plhs, nrhs, prhs):
+
+def interp2(data, x, y, origin_offset):
     """
-    MATLAB MEX function equivalent in Python.
+    Perform 2D linear interpolation.
 
     Args:
-        nlhs (int): Number of output arguments.
-        plhs (list of numpy.ndarray): Output arguments.
-        nrhs (int): Number of input arguments.
-        prhs (list of numpy.ndarray): Input arguments.
+        data (numpy.ndarray): 2D array containing data values.
+        x (numpy.ndarray): 2D array of target x-coordinates.
+        y (numpy.ndarray): 2D array of target y-coordinates.
+        origin_offset (int): Offset for the origin. Defaults to 1.
 
-    Raises:
-        ValueError: If the number of input arguments is not 3 or if input data is not 2D.
+    Returns:
+        None (results are stored in the 'result_r' array).
     """
-    if nrhs != 3:
-        raise ValueError("Incorrect number of arguments. Syntax is Vq = splinterp2(V, Xq, Yq)")
+    # data = datar.real
+    sh = x.shape
+    x = x.flatten()
+    y = y.flatten()
+    N = min(len(x),len(y))
+    N_max = max(len(x),len(y))
+    nrows = data.shape[0]
+    ncols = data.shape[1]
+    result_r = np.zeros_like(x)
+    for i in range(N):
+        x_1 = int(np.floor(x[i]) - origin_offset)
+        y_1 = int(np.floor(y[i]) - origin_offset)
 
-    if np.iscomplexobj(prhs[0]):
-        Matrix = prhs[0]
-        x = prhs[2]
-        y = prhs[1]
-        result = np.empty_like(x, dtype=np.complex128)
-        splinterp.parallel_interp2_cx(splinterp.interp2_F_cx, Matrix.real, Matrix.imag, x, y, result)
-        plhs[0] = result
+        if (x[i] - origin_offset) == (nrows - 1):
+            x_1 -= 1
+        if (y[i] - origin_offset) == (ncols - 1):
+            y_1 -= 1
+
+        if (x_1 < 0) or (x_1 + 1 > (nrows - 1)) or (y_1 < 0) or (y_1 + 1 > (ncols - 1)):
+            result_r[i] = 0
+        else:
+            f_11 = data[x_1, y_1]
+            f_12 = data[x_1, y_1 + 1]
+            f_21 = data[x_1 + 1, y_1]
+            f_22 = data[x_1 + 1, y_1 + 1]
+
+            w_x1 = x_1 + 1 - (x[i] - origin_offset)
+            w_x2 = (x[i] - origin_offset) - x_1
+            w_y1 = y_1 + 1 - (y[i] - origin_offset)
+            w_y2 = (y[i] - origin_offset) - y_1
+
+            a = f_11 * w_x1 + f_21 * w_x2
+            b = f_12 * w_x1 + f_22 * w_x2
+            result_r[i] = a * w_y1 + b * w_y2
+    result_r = result_r.reshape(sh)
+    return result_r
+
+def mex_function2(data, x, y, origin_offset = 1):
+    sh = x.shape
+    if np.isreal(data).all():
+        result = interp2(data, x, y, origin_offset)
     else:
-        Matrix = prhs[0]
-        x = prhs[2]
-        y = prhs[1]
-        result = np.empty_like(x, dtype=np.float64)
-        splinterp.parallel_interp2(splinterp.interp2_F, Matrix, x, y, result)
-        plhs[0] = result
-
-# Usage example:
-# nlhs = 1
-# plhs = [None] * nlhs
-# nrhs = 3
-# prhs = [np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([0.5, 1.5]), np.array([0.25, 1.25])]
-# mexFunction(nlhs, plhs, nrhs, prhs)
-# result = plhs[0]
+        result = interp2(data.real, x, y, origin_offset) + interp2(data.imag, x, y, origin_offset)*1j
+    return result
