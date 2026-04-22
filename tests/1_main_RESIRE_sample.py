@@ -1,7 +1,7 @@
 import os
 import numpy as np
-from pyaet.resire import RESIRE_Reconstructor
-from pyaet.resire.reconstruct import reconstruct
+from pyaet.resire_numpy import RESIRE_Reconstructor
+from pyaet.resire_numpy.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
 # import sys
@@ -14,7 +14,7 @@ angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/sample_
 results_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/output/sample_amorphous_res'
 
 # Create an instance of the RESIRE_Reconstructor class
-RESIRE = RESIRE_Reconstructor.RESIRE_Reconstructor()
+RESIRE = RESIRE_Reconstructor()
 
 # Set parameters
 RESIRE.filename_Projections = pj_filename

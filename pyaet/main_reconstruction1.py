@@ -1,10 +1,18 @@
 import os
+import sys
 import numpy as np
 import time
 import psutil
 import tracemalloc
-from pyaet.resire import RESIRE_Reconstructor
-from pyaet.resire.reconstruct import reconstruct
+from pathlib import Path
+
+if __package__ is None or __package__ == "":
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+from pyaet.resire_numpy import RESIRE_Reconstructor
+from pyaet.resire_numpy.reconstruct import reconstruct
 
 # Add paths (equivalent to MATLAB's addpath)
 # import sys
@@ -44,7 +52,7 @@ def main_reconstruction(projections_file_path, angles_file_path, resire_param, o
     # output_fn = 'reconstruction_volume'
 
     # Create an instance of the RESIRE_Reconstructor class
-    RESIRE = RESIRE_Reconstructor.RESIRE_Reconstructor()
+    RESIRE = RESIRE_Reconstructor()
 
     # Set parameters
     RESIRE.filename_Projections = projections_file_path
