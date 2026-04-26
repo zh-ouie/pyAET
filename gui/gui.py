@@ -2,11 +2,13 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QTextCursor
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
+from contextlib import redirect_stdout, redirect_stderr
+import traceback
 
 from pyaet.main_reconstruction1 import main_reconstruction
 from pyaet.main_polynomial_tracing2 import main_polynomial_tracing
@@ -20,6 +22,26 @@ import warnings
 
 # 抑制sipPyTypeDict弃用警告
 warnings.filterwarnings("ignore", category=DeprecationWarning, message="sipPyTypeDict")
+
+class QtSignalWriter:
+    def __init__(self, signal):
+        self.signal = signal
+        self.buffer = ""
+
+    def write(self, text):
+        if not text:
+            return 0
+
+        self.buffer += text
+        while "\n" in self.buffer:
+            line, self.buffer = self.buffer.split("\n", 1)
+            self.signal.emit(line + "\n")
+        return len(text)
+
+    def flush(self):
+        if self.buffer:
+            self.signal.emit(self.buffer)
+            self.buffer = ""
 
 class MyApp(QMainWindow):
     def __init__(self):
@@ -117,6 +139,11 @@ class MyApp(QMainWindow):
                                               )
         self.recon_layout.addWidget(self.recon_run_button)
 
+        self.recon_log_output = QPlainTextEdit()
+        self.recon_log_output.setReadOnly(True)
+        self.recon_log_output.setMinimumHeight(140)
+        self.recon_layout.addWidget(self.recon_log_output)
+
         self.recon_thread = None
 
         self.recon_page.setLayout(self.recon_layout)
@@ -171,6 +198,11 @@ class MyApp(QMainWindow):
                                                                           tracing_output_edit.text())
                                                 )
         self.tracing_layout.addWidget(self.tracing_run_button)
+
+        self.tracing_log_output = QPlainTextEdit()
+        self.tracing_log_output.setReadOnly(True)
+        self.tracing_log_output.setMinimumHeight(140)
+        self.tracing_layout.addWidget(self.tracing_log_output)
 
         self.tracing_thread = None
 
@@ -237,6 +269,11 @@ class MyApp(QMainWindow):
                                                                       class_output_edit.text())
                                               )
         self.class_layout.addWidget(self.class_run_button)
+
+        self.class_log_output = QPlainTextEdit()
+        self.class_log_output.setReadOnly(True)
+        self.class_log_output.setMinimumHeight(140)
+        self.class_layout.addWidget(self.class_log_output)
 
         self.class_thread = None
 
@@ -318,6 +355,11 @@ class MyApp(QMainWindow):
                                                                         refine_output_edit.text())
                                                )
         self.refine_layout.addWidget(self.refine_run_button)
+
+        self.refine_log_output = QPlainTextEdit()
+        self.refine_log_output.setReadOnly(True)
+        self.refine_log_output.setMinimumHeight(140)
+        self.refine_layout.addWidget(self.refine_log_output)
 
         self.refine_thread = None
 
@@ -414,6 +456,14 @@ class MyApp(QMainWindow):
             line_edit.setText(file_path)  # 更新文本框内容
             print(file_path)
 
+    def append_log(self, log_widget, message):
+        if not message:
+            return
+        log_widget.moveCursor(QTextCursor.End)
+        log_widget.insertPlainText(message)
+        scrollbar = log_widget.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
     def recon_on_click_run(self, pj_filename, angle_filename, resire_param_oversampling, resire_param_iteration, resire_param_parallel, output_fn):
         resire_param = {
             "oversampling_ratio": 3,
@@ -443,6 +493,8 @@ class MyApp(QMainWindow):
         self.recon_thread = WorkerThread(param)
 
         self.recon_thread.finished_signal.connect(self.recon_on_thread_finished)
+        self.recon_thread.log_signal.connect(lambda text: self.append_log(self.recon_log_output, text))
+        self.recon_log_output.clear()
         self.recon_run_button.setDisabled(True)
         self.recon_status_label.setText('Start running reconstruction,  please wait...')
         self.recon_thread.start()
@@ -462,6 +514,8 @@ class MyApp(QMainWindow):
         self.tracing_thread = WorkerThread(param)
 
         self.tracing_thread.finished_signal.connect(self.tracing_on_thread_finished)
+        self.tracing_thread.log_signal.connect(lambda text: self.append_log(self.tracing_log_output, text))
+        self.tracing_log_output.clear()
         self.tracing_run_button.setDisabled(True)
         self.tracing_status_label.setText('Start running atom tracing,  please wait...')
         self.tracing_thread.start()
@@ -482,6 +536,8 @@ class MyApp(QMainWindow):
         self.class_thread = WorkerThread(param)
 
         self.class_thread.finished_signal.connect(self.class_on_thread_finished)
+        self.class_thread.log_signal.connect(lambda text: self.append_log(self.class_log_output, text))
+        self.class_log_output.clear()
         self.class_run_button.setDisabled(True)
         self.class_status_label.setText('Start running atom classification,  please wait...')
         self.class_thread.start()
@@ -503,6 +559,8 @@ class MyApp(QMainWindow):
         self.refine_thread = WorkerThread(param)
 
         self.refine_thread.finished_signal.connect(self.refine_on_thread_finished)
+        self.refine_thread.log_signal.connect(lambda text: self.append_log(self.refine_log_output, text))
+        self.refine_log_output.clear()
         self.refine_run_button.setDisabled(True)
         self.refine_status_label.setText('Start running position refinement,  please wait...')
         self.refine_thread.start()
@@ -517,6 +575,7 @@ class MyApp(QMainWindow):
 
 class WorkerThread(QThread):
     finished_signal = pyqtSignal(object)  # define a signal to show job finished.
+    log_signal = pyqtSignal(str)
 
     def __init__(self, param):
         super(WorkerThread, self).__init__()
@@ -524,63 +583,70 @@ class WorkerThread(QThread):
 
     def run(self):
         # run the core calculation.
-        job_type = self.param['job_type']
-        print("job type")
-        print(job_type)
-        print(type(job_type))
-        print(self.param)
-        if job_type == 1:  #run reconstruction
-            pj_filename = self.param['pj_filename']
-            angle_filename = self.param['angle_filename']
-            resire_param = self.param['resire_param']
-            output_fn = self.param['output_fn']
-            main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)
-            result = 'Reconstruction done.'
-        if job_type == 2:  #run tracing
-            reconstruction_filename = self.param['reconstruction_filename']
-            max_num_th = self.param['max_num_th']
-            min_dist = self.param['min_dist']
-            output_fn = self.param['output_fn']
-            main_polynomial_tracing(reconstruction_filename, max_num_th, min_dist, output_fn)
-            result = 'Tracing done.'
-        if job_type == 3:  #run classification
-            reconstruction_filename = self.param['reconstruction_filename']
-            model_filename = self.param['model_filename']
-            num_species = self.param['num_species']
-            local_radius = self.param['local_radius']
-            output_fn = self.param['output_fn']
-            main_classification(reconstruction_filename, model_filename, num_species, local_radius, output_fn)
-            result = 'Classification done.'
-        if job_type == 4:  #run position refinement
-            pj_filename = self.param['pj_filename']
-            angle_filename = self.param['angle_filename']
-            model_filename = self.param['model_filename']
-            atom_filename = self.param['atom_filename']
-            num_iteration = self.param['num_iteration']
-            output_fn = self.param['output_fn']
-            main_position_refinement(pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn)
-            result = 'Position refinement done.'
-        if job_type == 10:  #run pdf calculator
-            model_filename = self.param['model_filename']
-            rmax = self.param['rmax']
-            output_fn = self.param['output_fn']
-            result = calc_pdf(model_filename, rmax=rmax, output_fn=output_fn)
-        if job_type == 11:  #run boo calculator
-            model_filename = self.param['model_filename']
-            cutoff = self.param['cutoff']
-            output_fn = self.param['output_fn']
-            result = calc_boo(model_filename, cutoff=cutoff, output_fn=output_fn)
-        if job_type == 12:  #run csro calculator
-            model_filename = self.param['model_filename']
-            cutoff = self.param['cutoff']
-            output_fn = self.param['output_fn']
-            result = calc_csro(model_filename, cutoff=cutoff, output_fn=output_fn)
-        if job_type == 13:  #run voronoi calculator
-            model_filename = self.param['model_filename']
-            # cutoff = self.param['cutoff']
-            output_fn = self.param['output_fn']
-            result = calc_voronoi(model_filename, output_fn=output_fn)
-
+        writer = QtSignalWriter(self.log_signal)
+        result = 'Failed. Check output log.'
+        try:
+            with redirect_stdout(writer), redirect_stderr(writer):
+                job_type = self.param['job_type']
+                print("job type")
+                print(job_type)
+                print(type(job_type))
+                print(self.param)
+                if job_type == 1:  #run reconstruction
+                    pj_filename = self.param['pj_filename']
+                    angle_filename = self.param['angle_filename']
+                    resire_param = self.param['resire_param']
+                    output_fn = self.param['output_fn']
+                    main_reconstruction(pj_filename, angle_filename, resire_param, output_fn)
+                    result = 'Reconstruction done.'
+                if job_type == 2:  #run tracing
+                    reconstruction_filename = self.param['reconstruction_filename']
+                    max_num_th = self.param['max_num_th']
+                    min_dist = self.param['min_dist']
+                    output_fn = self.param['output_fn']
+                    main_polynomial_tracing(reconstruction_filename, max_num_th, min_dist, output_fn)
+                    result = 'Tracing done.'
+                if job_type == 3:  #run classification
+                    reconstruction_filename = self.param['reconstruction_filename']
+                    model_filename = self.param['model_filename']
+                    num_species = self.param['num_species']
+                    local_radius = self.param['local_radius']
+                    output_fn = self.param['output_fn']
+                    main_classification(reconstruction_filename, model_filename, num_species, local_radius, output_fn)
+                    result = 'Classification done.'
+                if job_type == 4:  #run position refinement
+                    pj_filename = self.param['pj_filename']
+                    angle_filename = self.param['angle_filename']
+                    model_filename = self.param['model_filename']
+                    atom_filename = self.param['atom_filename']
+                    num_iteration = self.param['num_iteration']
+                    output_fn = self.param['output_fn']
+                    main_position_refinement(pj_filename, angle_filename, model_filename, atom_filename, num_iteration, output_fn)
+                    result = 'Position refinement done.'
+                if job_type == 10:  #run pdf calculator
+                    model_filename = self.param['model_filename']
+                    rmax = self.param['rmax']
+                    output_fn = self.param['output_fn']
+                    result = calc_pdf(model_filename, rmax=rmax, output_fn=output_fn)
+                if job_type == 11:  #run boo calculator
+                    model_filename = self.param['model_filename']
+                    cutoff = self.param['cutoff']
+                    output_fn = self.param['output_fn']
+                    result = calc_boo(model_filename, cutoff=cutoff, output_fn=output_fn)
+                if job_type == 12:  #run csro calculator
+                    model_filename = self.param['model_filename']
+                    cutoff = self.param['cutoff']
+                    output_fn = self.param['output_fn']
+                    result = calc_csro(model_filename, cutoff=cutoff, output_fn=output_fn)
+                if job_type == 13:  #run voronoi calculator
+                    model_filename = self.param['model_filename']
+                    # cutoff = self.param['cutoff']
+                    output_fn = self.param['output_fn']
+                    result = calc_voronoi(model_filename, output_fn=output_fn)
+        except Exception:
+            self.log_signal.emit(traceback.format_exc())
+        finally:
+            writer.flush()
         self.finished_signal.emit(result)
 
 
