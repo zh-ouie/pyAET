@@ -3,13 +3,19 @@ import os
 import numpy as np
 
 from pyaet.src.cropped_out import cropped_out
-from pyaet.src.interp2_numpy import interp2_bilinear
 from pyaet.src.my_fft import my_fft
 from pyaet.src.my_volume_index import my_volumn_index
 from pyaet.splinterp_cpp import mex_function2, mex_function3
 
 
 def reconstruct(obj):
+    """Run iterative RESIRE reconstruction with NumPy and C++ splinterp.
+
+    This function mirrors the MATLAB RESIRE reconstruction loop. Fourier-space
+    interpolation uses ``mex_function3`` and rotated back-projection
+    interpolation uses ``mex_function2``. It intentionally does not fall back
+    to ``interp2_bilinear``.
+    """
     projections = obj.InputProjections.astype(np.float64, copy=False)
     num_pj = obj.num_projs
     step_size = obj.step_size
@@ -78,19 +84,11 @@ def reconstruct(obj):
         grad = np.asfortranarray((-sum_rot_pjs).astype(dtype, copy=False))
         for k in range(num_pj):
             pj_cal_k = np.asfortranarray(pj_cal[:, :, k])
-            try:
-                rot_pj_cal = mex_function2(
-                    pj_cal_k,
-                    np.ascontiguousarray(Rot_x[:, :, :, k]),
-                    np.ascontiguousarray(Rot_y[:, :, :, k]),
-                )
-            except Exception:
-                rot_pj_cal = interp2_bilinear(
-                    pj_cal_k,
-                    Rot_x[:, :, :, k],
-                    Rot_y[:, :, :, k],
-                    origin_offset=1,
-                )
+            rot_pj_cal = mex_function2(
+                pj_cal_k,
+                np.ascontiguousarray(Rot_x[:, :, :, k]),
+                np.ascontiguousarray(Rot_y[:, :, :, k]),
+            )
             grad = grad + np.asfortranarray(np.asarray(rot_pj_cal, dtype=dtype))
 
         rec = np.asfortranarray(np.maximum(0, rec - dt * grad).astype(dtype, copy=False))

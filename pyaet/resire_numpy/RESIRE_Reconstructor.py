@@ -8,6 +8,13 @@ from pyaet.src.io_helper import read_mat_file
 
 
 class RESIRE_Reconstructor:
+    """Container and runner for the NumPy RESIRE reconstruction state.
+
+    The class mirrors the MATLAB RESIRE object: it stores file paths,
+    reconstruction parameters, prepared interpolation grids, monitoring arrays,
+    and the final reconstructed volume.
+    """
+
     def __init__(self):
         self.InputProjections = None
         self.InputAngles = None

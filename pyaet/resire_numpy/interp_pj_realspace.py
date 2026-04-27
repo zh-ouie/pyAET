@@ -1,12 +1,17 @@
 import numpy as np
 
-from pyaet.src.interp2_numpy import interp2_bilinear
 from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
 from pyaet.src.my_round import my_round_num
 from pyaet.splinterp_cpp import mex_function2
 
 
 def interp_pj_realspace(obj):
+    """Interpolate measured projections onto RESIRE real-space grids.
+
+    This is the NumPy implementation of MATLAB ``interp_pj_realspace``. The
+    production path always uses C++ ``mex_function2`` for 2-D interpolation;
+    it does not fall back to the Python ``interp2_bilinear`` helper.
+    """
     projections = np.asarray(obj.InputProjections, dtype=np.float64, order="F")
     num_pj = obj.num_projs
     dimx = obj.dim1
@@ -71,14 +76,11 @@ def interp_pj_realspace(obj):
         Rot_x[:, :, :, k] = rot_x64.astype(dtype, copy=False)
         Rot_y[:, :, :, k] = rot_y64.astype(dtype, copy=False)
 
-        try:
-            rot_pj = mex_function2(
-                pj,
-                np.ascontiguousarray(rot_x64),
-                np.ascontiguousarray(rot_y64),
-            )
-        except Exception:
-            rot_pj = interp2_bilinear(pj, rot_x64, rot_y64, origin_offset=1)
+        rot_pj = mex_function2(
+            pj,
+            np.ascontiguousarray(rot_x64),
+            np.ascontiguousarray(rot_y64),
+        )
         rot_pjs[:, :, :, k] = np.asarray(rot_pj, dtype=dtype, order="F")
 
         rot_coords = R.T @ np.vstack((X, Y, Z))

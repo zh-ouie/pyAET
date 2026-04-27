@@ -9,7 +9,6 @@ except ImportError:
     torch = None
 
 from pyaet.src.cropped_out import cropped_out
-from pyaet.src.interp2_numpy import interp2_bilinear
 from pyaet.src.my_fft import my_fft
 from pyaet.src.my_volume_index import my_volumn_index
 from pyaet.splinterp_cpp import mex_function2, mex_function3
@@ -41,6 +40,12 @@ def _to_torch(array: np.ndarray, device: str, torch_dtype):
 
 
 def reconstruct(obj):
+    """Run RESIRE reconstruction with torch-assisted gradient/update steps.
+
+    Fourier-space interpolation uses C++ ``mex_function3`` and rotated
+    back-projection interpolation uses C++ ``mex_function2``. This path does
+    not fall back to the Python ``interp2_bilinear`` helper.
+    """
     reconstruct_start = time.perf_counter()
     projections = obj.InputProjections.astype(np.float64, copy=False)
     num_pj = obj.num_projs
@@ -145,21 +150,13 @@ def reconstruct(obj):
 
         for k in range(num_pj):
             pj_cal_k = np.asfortranarray(pj_cal[:, :, k])
-            try:
-                t1 = time.perf_counter()
-                rot_pj_cal = mex_function2(
-                    pj_cal_k,
-                    np.ascontiguousarray(Rot_x[:, :, :, k]),
-                    np.ascontiguousarray(Rot_y[:, :, :, k]),
-                )
-                perf["mex_function2_backproj_s"] += time.perf_counter() - t1
-            except Exception:
-                rot_pj_cal = interp2_bilinear(
-                    pj_cal_k,
-                    Rot_x[:, :, :, k],
-                    Rot_y[:, :, :, k],
-                    origin_offset=1,
-                )
+            t1 = time.perf_counter()
+            rot_pj_cal = mex_function2(
+                pj_cal_k,
+                np.ascontiguousarray(Rot_x[:, :, :, k]),
+                np.ascontiguousarray(Rot_y[:, :, :, k]),
+            )
+            perf["mex_function2_backproj_s"] += time.perf_counter() - t1
             perf["mex_function2_backproj_calls"] += 1
             rot_pj_cal = np.asfortranarray(np.asarray(rot_pj_cal, dtype=dtype))
             if rec_t is None:
