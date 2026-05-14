@@ -2,6 +2,17 @@
 
 This software rewrites the atomic electron tomography (AET) reconstruction codes in Python.
 
+## Reconstruction layout
+
+Step1 reconstruction is being migrated to two explicit lines:
+
+- `pyaet/resire_numpy/`: stable NumPy/CPP implementation
+- `pyaet/resire_torch/`: torch/GPU line
+
+Run instructions for Step1 are in:
+
+- [STEP1_RECONSTRUCTION.md](./STEP1_RECONSTRUCTION.md)
+
 
 ## GUI
 For the GUI development, PyQt5 is used.

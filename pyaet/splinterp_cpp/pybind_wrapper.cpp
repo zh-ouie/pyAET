@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include "splinterp.h"
+#include <vector>
+#include <complex>
 
 namespace py = pybind11;
 
@@ -41,10 +43,13 @@ py::array_t<double> py_mex_function1(py::array_t<double> data, py::array_t<doubl
     double* result_ptr = static_cast<double*>(buf_result.ptr);
     
     // 调用C++的1D插值函数
-    splinterp::parallel_interp1(splinterp::interp1_F<double>,
-                              data_ptr, nrows,
-                              x_ptr, npoints,
-                              result_ptr, origin_offset);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp1(splinterp::interp1_F<double>,
+                                  data_ptr, nrows,
+                                  x_ptr, npoints,
+                                  result_ptr, origin_offset);
+    }
     
     return result;
 }
@@ -87,28 +92,14 @@ py::array_t<std::complex<double>> py_mex_function1_complex(
     double* x_ptr = static_cast<double*>(buf_x.ptr);
     std::complex<double>* result_ptr = static_cast<std::complex<double>*>(buf_result.ptr);
     
-    // 分离实部和虚部
-    std::vector<double> data_r(nrows);
-    std::vector<double> data_i(nrows);
-    std::vector<double> result_r(npoints);
-    std::vector<double> result_i(npoints);
-    
-    for (size_t i = 0; i < nrows; ++i) {
-        data_r[i] = data_ptr[i].real();
-        data_i[i] = data_ptr[i].imag();
-    }
-    
-    // 调用C++的复数1D插值函数
-    splinterp::parallel_interp1_cx(splinterp::interp1_F_cx<double>,
-                                 data_r.data(), data_i.data(),
-                                 nrows,
-                                 x_ptr, npoints,
-                                 result_r.data(), result_i.data(),
-                                 origin_offset);
-    
-    // 合并实部和虚部到复数结果
-    for (size_t i = 0; i < npoints; ++i) {
-        result_ptr[i] = std::complex<double>(result_r[i], result_i[i]);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp1_complex(
+            splinterp::interp1_F_complex<double>,
+            data_ptr, nrows,
+            x_ptr, npoints,
+            result_ptr, origin_offset
+        );
     }
     
     return result;
@@ -182,10 +173,13 @@ py::array_t<double> py_mex_function2(py::array_t<double> data, py::array_t<doubl
     double* result_ptr = static_cast<double*>(buf_result.ptr);
     
     // 调用C++的2D插值函数
-    splinterp::parallel_interp2(splinterp::interp2_F<double>,
-                              data_ptr, nrows, ncols,
-                              x_ptr, y_ptr, npoints,
-                              result_ptr, origin_offset);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp2(splinterp::interp2_F<double>,
+                                  data_ptr, nrows, ncols,
+                                  x_ptr, y_ptr, npoints,
+                                  result_ptr, origin_offset);
+    }
     
     return result;
 }
@@ -207,8 +201,13 @@ py::array_t<std::complex<double>> py_mex_function2_complex(
     size_t ncols = data_shape[1];
     
     // 检查x, y数组的形状是否一致
-    if (x.shape() != y.shape()) {
+    if (x.ndim() != y.ndim()) {
         throw std::runtime_error("x, y arrays must have the same shape");
+    }
+    for (size_t i = 0; i < x.ndim(); ++i) {
+        if (x.shape()[i] != y.shape()[i]) {
+            throw std::runtime_error("x, y arrays must have the same shape");
+        }
     }
     
     // 获取输出数组的形状和大小
@@ -237,28 +236,14 @@ py::array_t<std::complex<double>> py_mex_function2_complex(
     double* y_ptr = static_cast<double*>(buf_y.ptr);
     std::complex<double>* result_ptr = static_cast<std::complex<double>*>(buf_result.ptr);
     
-    // 分离实部和虚部
-    std::vector<double> data_r(nrows * ncols);
-    std::vector<double> data_i(nrows * ncols);
-    std::vector<double> result_r(npoints);
-    std::vector<double> result_i(npoints);
-    
-    for (size_t i = 0; i < nrows * ncols; ++i) {
-        data_r[i] = data_ptr[i].real();
-        data_i[i] = data_ptr[i].imag();
-    }
-    
-    // 调用C++的复数2D插值函数
-    splinterp::parallel_interp2_cx(splinterp::interp2_F_cx<double>,
-                                 data_r.data(), data_i.data(),
-                                 nrows, ncols,
-                                 x_ptr, y_ptr, npoints,
-                                 result_r.data(), result_i.data(),
-                                 origin_offset);
-    
-    // 合并实部和虚部到复数结果
-    for (size_t i = 0; i < npoints; ++i) {
-        result_ptr[i] = std::complex<double>(result_r[i], result_i[i]);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp2_complex(
+            splinterp::interp2_F_complex<double>,
+            data_ptr, nrows, ncols,
+            x_ptr, y_ptr, npoints,
+            result_ptr, origin_offset
+        );
     }
     
     return result;
@@ -333,10 +318,13 @@ py::array_t<double> py_mex_function3(py::array_t<double> data, py::array_t<doubl
     double* result_ptr = static_cast<double*>(buf_result.ptr);
     
     // 调用C++的3D插值函数
-    splinterp::parallel_interp3(splinterp::interp3_F<double>, 
-                              data_ptr, nrows, ncols, nlayers, 
-                              x_ptr, y_ptr, z_ptr, npoints, 
-                              result_ptr, origin_offset);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp3(splinterp::interp3_F<double>, 
+                                  data_ptr, nrows, ncols, nlayers, 
+                                  x_ptr, y_ptr, z_ptr, npoints, 
+                                  result_ptr, origin_offset);
+    }
     
     return result;
 }
@@ -398,28 +386,14 @@ py::array_t<std::complex<double>> py_mex_function3_complex(
     double* z_ptr = static_cast<double*>(buf_z.ptr);
     std::complex<double>* result_ptr = static_cast<std::complex<double>*>(buf_result.ptr);
     
-    // 分离实部和虚部
-    std::vector<double> data_r(nrows * ncols * nlayers);
-    std::vector<double> data_i(nrows * ncols * nlayers);
-    std::vector<double> result_r(npoints);
-    std::vector<double> result_i(npoints);
-    
-    for (size_t i = 0; i < nrows * ncols * nlayers; ++i) {
-        data_r[i] = data_ptr[i].real();
-        data_i[i] = data_ptr[i].imag();
-    }
-    
-    // 调用C++的复数3D插值函数
-    splinterp::parallel_interp3_cx(splinterp::interp3_F_cx<double>,
-                                 data_r.data(), data_i.data(),
-                                 nrows, ncols, nlayers,
-                                 x_ptr, y_ptr, z_ptr, npoints,
-                                 result_r.data(), result_i.data(),
-                                 origin_offset);
-    
-    // 合并实部和虚部到复数结果
-    for (size_t i = 0; i < npoints; ++i) {
-        result_ptr[i] = std::complex<double>(result_r[i], result_i[i]);
+    {
+        py::gil_scoped_release release;
+        splinterp::parallel_interp3_complex(
+            splinterp::interp3_F_complex<double>,
+            data_ptr, nrows, ncols, nlayers,
+            x_ptr, y_ptr, z_ptr, npoints,
+            result_ptr, origin_offset
+        );
     }
     
     return result;

@@ -10,7 +10,7 @@ from scipy.stats import gaussian_kde
 from contextlib import redirect_stdout, redirect_stderr
 import traceback
 
-from pyaet.main_reconstruction1 import main_reconstruction
+from pyaet.main_reconstruction1_numpy import main_reconstruction
 from pyaet.main_polynomial_tracing2 import main_polynomial_tracing
 from pyaet.main_classification3 import main_classification
 from pyaet.main_position_refinement4 import main_position_refinement
