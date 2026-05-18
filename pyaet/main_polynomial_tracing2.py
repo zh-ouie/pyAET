@@ -1,8 +1,5 @@
-import json
 import numpy as np
 import os
-import time
-from pathlib import Path
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist
@@ -46,18 +43,8 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         Dsetvol = read_mat_file(Dsetvol_file_path)
     else:
         Dsetvol = np.load(Dsetvol_file_path)
-    print("PID:", os.getpid())
 
     output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
-    output_dir = Path(output_fn).resolve().parent
-    output_dir.mkdir(parents=True, exist_ok=True)
-    debug_output_path = os.environ.get("PYAET_TRACING_DEBUG_OUTPUT", "").strip()
-    if not debug_output_path:
-        debug_output_path = str(output_dir / f"tracing_debug_{max_num_th}")
-    initial_class_debug_output = os.environ.get("PYAET_INITIAL_CLASS_DEBUG_OUTPUT", "").strip()
-    if not initial_class_debug_output:
-        initial_class_debug_output = str(output_dir / f"initial_class_debug_{max_num_th}")
-    stage_start = time.perf_counter()
 
     # Constants
     max_iter = 14
@@ -150,9 +137,6 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     coeff_arr = coeff_arr.astype('float')
 
     # Perform the main tracing loop
-    # todo: still some error in the loop. in python, all exitFlagArr is negative. But we want 0.
-    peak_loop_start = time.perf_counter()
-    least_squares_s = 0.0
     for i in range(len(max_XYZ)):
         end_flag = False
         consec_accum = 0
@@ -195,9 +179,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
             x0 = coeff_arr[:, i]
             lb = -np.inf * np.ones_like(x0)  # Example lower bounds
             ub = np.inf * np.ones_like(x0)  # Example upper bounds
-            lsq_start = time.perf_counter()
             res = least_squares(residuals, x0, args=(XYZdata, cropVol, pos, orders), bounds=(lb, ub), method='trf', verbose=0)
-            least_squares_s += time.perf_counter() - lsq_start
             p1 = res.x # optimized parameters
             residuals = res.fun
             fminres1 = np.sum(residuals ** 2) # calculate the squared 2-norm of the residuals
@@ -252,48 +234,33 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         'SPHyn': True,
         'PLOT_YN': False,
         'separate_part': 120,
-        'debug_output_path': initial_class_debug_output,
     }
 
     atom_pos = tot_pos_arr[exit_flag_arr == 0, :].T
     atom_pos_all = atom_pos / 3 - 2
-    unique_flags, unique_counts = np.unique(exit_flag_arr, return_counts=True)
-    print("Exit flag summary:")
-    for flag, count in zip(unique_flags.tolist(), unique_counts.tolist(), strict=True):
-        print(f"  flag {flag}: {count}")
-    print(f"  candidate_atoms_before_boundary = {atom_pos.shape[1]}")
-
     b1 = np.where(np.logical_or(atom_pos[0, :] < 15, atom_pos[0, :] > FinalVol_single.shape[0] - 15))[0]
     b2 = np.where(np.logical_or(atom_pos[1, :] < 15, atom_pos[1, :] > FinalVol_single.shape[1] - 15))[0]
     b3 = np.where(np.logical_or(atom_pos[2, :] < 15, atom_pos[2, :] > FinalVol_single.shape[2] - 15))[0]
 
     bT = np.union1d(np.union1d(b1, b2), b3)
     atom_pos = np.delete(atom_pos, bT, axis=1)
-    print(f"  candidate_atoms_after_boundary = {atom_pos.shape[1]}")
-
-    peak_loop_s = time.perf_counter() - peak_loop_start
-    class_start = time.perf_counter()
     temp_model, temp_atomtype = initial_class_kmean(
         FinalVol_single, atom_pos, classify_info)
-    classification_s = time.perf_counter() - class_start
-    print(f"  atoms_after_initial_classification = {temp_model.shape[1]}")
 
     atom_pos_o = temp_model / 3 - 2
 
     # Calculate support from reconstruction and get the atoms inside
-    support_sample_coords = np.round(atom_pos_o.T).astype(int) - 1
     support_para = {
         'th_dis_r_afterav': 0.9125,
         'dilate_size': 15,
         'erode_size': 13,
         'bw_size': 50000,
-        'debug_sample_coords': support_sample_coords,
     }
 
     # Implement the functions obtain_tight_support and my_paddzero similarly
-    tight_support1, support_debug1 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
+    tight_support1 = obtain_tight_support(Dsetvol, support_para)
     support_para['erode_size'] = 18
-    tight_support2, support_debug2 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
+    tight_support2 = obtain_tight_support(Dsetvol, support_para)
     print(f"  tight_support1_voxels = {int(np.count_nonzero(tight_support1))}")
     print(f"  tight_support2_voxels = {int(np.count_nonzero(tight_support2))}")
 
@@ -312,7 +279,6 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         if tight_support1[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
             temp_pos_arr1.append([atom_pos_o[:, i][0], atom_pos_o[:, i][1], atom_pos_o[:, i][2]])
             ind_arr1.append(i)
-    print(f"  atoms_inside_tight_support1 = {len(ind_arr1)}")
 
     # Exclude traced atoms outside the looser support
     temp_pos_arr1_arr = np.asarray(temp_pos_arr1, dtype=float)
@@ -326,73 +292,10 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
             temp_pos = np.round(atom_pos_all[:, i]).astype(int) - 1
             if tight_support2[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
                 ind_arr2.append(i)
-    print(f"  atoms_after_support_filter = {len(ind_arr2)}")
 
-    support_filter_s = time.perf_counter() - class_start - classification_s
     temp_pos_arr2 = atom_pos_all[:, ind_arr2]
     np.save(output_file_path+".npy", temp_pos_arr2)
-    total_s = time.perf_counter() - stage_start
-    print("Tracing performance summary:")
-    print(f"  total_s = {total_s:.3f}")
-    print(f"  peak_count = {len(max_XYZ)}")
-    print(f"  peak_loop_s = {peak_loop_s:.3f}")
-    print(f"  least_squares_s = {least_squares_s:.3f}")
-    print(f"  avg_peak_s = {peak_loop_s / max(len(max_XYZ), 1):.6f}")
-    print(f"  classification_s = {classification_s:.3f}")
-    print(f"  support_filter_s = {support_filter_s:.3f}")
     print("tracing finished.")
-
-    if debug_output_path:
-        debug_npz_path = debug_output_path if debug_output_path.endswith(".npz") else debug_output_path + ".npz"
-        debug_json_path = debug_npz_path[:-4] + ".json"
-        debug_summary = {
-            "candidate_atoms_before_boundary": int(atom_pos_all.shape[1]),
-            "candidate_atoms_after_boundary": int(atom_pos.shape[1]),
-            "atoms_after_initial_classification": int(temp_model.shape[1]),
-            "tight_support1_voxels": int(np.count_nonzero(tight_support1)),
-            "tight_support2_voxels": int(np.count_nonzero(tight_support2)),
-            "tight_support1_threshold": float(support_debug1["threshold"]),
-            "tight_support2_threshold": float(support_debug2["threshold"]),
-            "atoms_inside_tight_support1": int(len(ind_arr1)),
-            "atoms_after_support_filter": int(len(ind_arr2)),
-            "exit_flag_summary": {int(k): int(v) for k, v in zip(unique_flags.tolist(), unique_counts.tolist(), strict=True)},
-            "peak_count": int(len(max_XYZ)),
-        }
-        np.savez_compressed(
-            debug_npz_path,
-            exit_flag_arr=exit_flag_arr,
-            max_XYZ=max_XYZ_base,
-            pos_arr=pos_arr,
-            tot_pos_arr=tot_pos_arr,
-            atom_pos=atom_pos,
-            atom_pos_all=atom_pos_all,
-            temp_model=temp_model,
-            temp_atomtype=temp_atomtype,
-            atom_pos_o=atom_pos_o,
-            temp_pos_arr1=temp_pos_arr1_arr,
-            ind_arr1=np.asarray(ind_arr1, dtype=int),
-            ind_arr2=np.asarray(ind_arr2, dtype=int),
-            temp_pos_arr2=temp_pos_arr2,
-            tight_support1=tight_support1.astype(np.uint8),
-            tight_support2=tight_support2.astype(np.uint8),
-            support_sample_coords=support_sample_coords,
-            support1_smoothed_sample=support_debug1["smoothed_sample"],
-            support1_threshold_sample=support_debug1["threshold_sample"],
-            support1_dilate3_sample=support_debug1["dilate3_sample"],
-            support1_dilateN_sample=support_debug1["dilateN_sample"],
-            support1_cleanup_sample=support_debug1["cleanup_sample"],
-            support1_final_sample=support_debug1["final_sample"],
-            support2_smoothed_sample=support_debug2["smoothed_sample"],
-            support2_threshold_sample=support_debug2["threshold_sample"],
-            support2_dilate3_sample=support_debug2["dilate3_sample"],
-            support2_dilateN_sample=support_debug2["dilateN_sample"],
-            support2_cleanup_sample=support_debug2["cleanup_sample"],
-            support2_final_sample=support_debug2["final_sample"],
-        )
-        with open(debug_json_path, "w", encoding="utf-8") as f:
-            json.dump(debug_summary, f, indent=2, sort_keys=True)
-        print(f"Saved tracing debug data to {debug_npz_path}")
-        print(f"Saved tracing debug summary to {debug_json_path}")
     return
 
 # Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'

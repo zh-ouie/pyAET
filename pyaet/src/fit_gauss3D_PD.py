@@ -51,12 +51,10 @@ def fit_gauss3D_PD(init_guess, xdata, ydata, *args):
 
         return predictions.flatten(order='F') - ydata.flatten(order='F')
 
-    opt = {'xtol': 1e-12}
-
     ydata = np.nan_to_num(ydata, nan=0) #long add
 
     # Perform the fit
-    res = least_squares(residuals, init_guess, args = (xdata, ydata), bounds = (lower_bound, upper_bound), method = 'trf', xtol = opt['xtol'], verbose = 0)
+    res = least_squares(residuals, init_guess, args = (xdata, ydata), bounds = (lower_bound, upper_bound), method = 'trf', xtol = 1e-12, verbose = 0)
 
     x = res.x
     residual = res.fun

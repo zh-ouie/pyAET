@@ -1,5 +1,4 @@
 import numpy as np
-import os
 from sklearn.cluster import KMeans
 from pyaet.src.get_box_intensity import get_box_intensity
 from pyaet.src.initial_class_L1norm import initial_class_L1norm
@@ -133,11 +132,7 @@ def initial_class_kmean(rec, curr_model, classify_info):
     SPHyn = classify_info.get('SPHyn', True)
     PLOT_YN = classify_info.get('PLOT_YN', False)
     
-    # Fix random state for reproducibility if provided
     random_state = classify_info.get('random_state', 42)
-    debug_output_path = str(classify_info.get('debug_output_path', '')).strip()
-    if not debug_output_path:
-        debug_output_path = os.environ.get("PYAET_INITIAL_CLASS_DEBUG_OUTPUT", "").strip()
 
     # Generate points of intensities
     box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
@@ -163,10 +158,6 @@ def initial_class_kmean(rec, curr_model, classify_info):
     for i in range(num_species + 1):
         idx[idx == sortMean[i]] = i + 1000
     idx = idx - 1000
-    idx_stage1 = idx.copy()
-    mean_arr_stage1 = mean_arr.copy()
-    sortMean_stage1 = sortMean.copy()
-
     # Plot histogram
     if PLOT_YN:
         plt.figure(203)
@@ -268,28 +259,6 @@ def initial_class_kmean(rec, curr_model, classify_info):
         print(f'number of total atoms: {len(idx)}')
 
     temp_atomtype = idx
-
-    if debug_output_path:
-        debug_npz_path = debug_output_path if debug_output_path.endswith(".npz") else debug_output_path + ".npz"
-        np.savez_compressed(
-            debug_npz_path,
-            curr_model=curr_model,
-            box_inten=box_inten,
-            box_inten_plot=box_inten_plot,
-            integ_box_inten=integ_box_inten,
-            idx_stage1=idx_stage1,
-            mean_arr_stage1=mean_arr_stage1,
-            sortMean_stage1=sortMean_stage1,
-            box_inten_type1=box_inten_type1,
-            mean_box_type1=mean_box_type1,
-            atomtype=atomtype,
-            temp_model=temp_model,
-            box_inten_sub=box_inten_sub,
-            box_inten_plot_sub=box_inten_plot_sub,
-            integ_box_inten_sub=integ_box_inten_sub,
-            temp_atomtype=temp_atomtype,
-        )
-        print(f"Saved initial_class debug data to {debug_npz_path}")
 
     return temp_model, temp_atomtype
 

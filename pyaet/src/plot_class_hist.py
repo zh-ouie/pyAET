@@ -64,8 +64,6 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
 
     for j in range(temp_model.shape[1]):
         curr_pos = np.round(temp_model[:, j]).astype(int)-1
-        if classify_info.get('small_debug', False):
-            curr_pos = np.round(curr_pos / 10).astype(int) - 1
         if (curr_pos[0] - plot_half_size < 0 or curr_pos[1] - plot_half_size < 0 or curr_pos[2] - plot_half_size < 0 or
             curr_pos[0] + plot_half_size + 1 > RecVol_padded.shape[0] or
             curr_pos[1] + plot_half_size + 1 > RecVol_padded.shape[1] or

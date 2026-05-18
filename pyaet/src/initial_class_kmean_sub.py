@@ -96,7 +96,6 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
     box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
     box_inten_plot = get_box_intensity(rec, curr_model, plot_half_size, O_Ratio, SPHyn, 'linear')
 
-    # MATLAB does: box_inten(isnan)=0; data(isnan)=0;
     box_inten = np.nan_to_num(box_inten, nan=0.0)
     box_inten_plot = np.nan_to_num(box_inten_plot, nan=0.0)
     data_1d = np.nan_to_num(np.sum(box_inten, axis=0).astype(np.float64), nan=0.0)
@@ -126,7 +125,6 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
         idx[idx == sortMean[i - 1]] = i + 1000
     idx = idx - 1000
 
-    # Output label convention: MATLAB uses 1..K; Python sometimes uses 0..K-1.
     if not classify_info.get('matlab_label', False):
         idx = idx - 1
 
@@ -136,7 +134,6 @@ def initial_class_kmean_sub(rec, curr_model, classify_info):
         plt.clf()
         plt.figure(figsize=(4, 9))
 
-        # Histogram of integrated intensity
         hist_inten_plot, cen_integ_total_plot = np.histogram(np.sum(box_inten_plot, axis=0), bins=separate_part)
         y_up = np.round(np.max(hist_inten_plot) / 10) * 12
 
