@@ -1,53 +1,41 @@
-import numpy as np
-from pyaet.resire_numpy import RESIRE_Reconstructor
-from pyaet.resire_numpy.reconstruct import reconstruct
+"""Step1 MG-style smoke run.
 
-# Add paths (equivalent to MATLAB's addpath)
-# import sys
-# sys.path.append('src/')
-# sys.path.append('src/splinterp/')
+This script expects local MG projection and angle files. The repository does
+not package the full MG raw projection input, so edit the paths below before
+using this script for a full MG run.
+"""
 
-# Define file paths
-angle_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Angles.npy'
-pj_filename = '/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/1Projections.npy'
-results_filename = 'output/RESIRE_experiment_result_full'
+from pathlib import Path
 
-# Create an instance of the RESIRE_Reconstructor class
-RESIRE = RESIRE_Reconstructor()
+from pyaet.main_reconstruction1_numpy import main_reconstruction
 
-# Set parameters
-RESIRE.filename_Projections = pj_filename
-RESIRE.filename_Angles = angle_filename
-RESIRE.filename_Results = results_filename
 
-RESIRE.set_parameters(
-    oversampling_ratio = 4,
-    num_iterations = 5, #200
-    monitor_R = True,
-    monitorR_loopLength = 2, #20
-    gridding_method = 1,
-    vector3 = [1, 0, 0],
-    use_parallel = True
-)
+ROOT = Path(__file__).resolve().parents[1]
+PROJECTIONS_FILE = ROOT / "pyaet" / "input" / "1Projections.mat"
+ANGLES_FILE = ROOT / "pyaet" / "input" / "1Angles.mat"
 
-# Read files
-RESIRE.read_files()
+RESIRE_PARAM = {
+    "oversampling_ratio": 4,
+    "num_iterations": 5,
+    "monitor_R": True,
+    "monitorR_loopLength": 2,
+    "gridding_method": 1,
+    "vector3": [1, 0, 0],
+    "use_parallel": True,
+    "save_temp": False,
+    "dtype": "float32",
+}
 
-# Check and prepare data
-RESIRE.check_prepare_data()
 
-# Run gridding
-RESIRE.run_gridding()
-
-# Reconstruct
-reconstruct(RESIRE)
-
-# Clear calculation variables
-# RESIRE.clear_calc_variables()
-
-# Get the reconstruction result
-Reconstruction = RESIRE.reconstruction
-
-# Save results
-np.save('reconstruction_volume_full.npy', Reconstruction)
-RESIRE.save_results()
+if __name__ == "__main__":
+    if not PROJECTIONS_FILE.exists() or not ANGLES_FILE.exists():
+        raise FileNotFoundError(
+            "MG raw projection files are not packaged. Place 1Projections.mat "
+            "and 1Angles.mat under pyaet/input/ or edit this script."
+        )
+    main_reconstruction(
+        str(PROJECTIONS_FILE),
+        str(ANGLES_FILE),
+        RESIRE_PARAM,
+        "RESIRE_experiment_result_full",
+    )

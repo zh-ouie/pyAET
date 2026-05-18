@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
+
+# Local comparison/debug outputs
+comparison_reports/
 
 # C extensions
 *.so
