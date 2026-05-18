@@ -1,5 +1,6 @@
-import numpy as np
 import os
+import sys
+import numpy as np
 from scipy.interpolate import interpn
 from scipy.io import loadmat
 from pyaet.src.interp3_spline import interp3_spline
@@ -95,6 +96,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
     classify_info = {
         'num_species': num_species,
         'half_size': 3,
+        # Matches MATLAB classify_info.plothalfSize in Main_classification.m.
         'plot_half_size': 1,
         'O_Ratio': 1,
         'SPHyn': True,
@@ -135,22 +137,17 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
     print("classification finished.")
     return
 
-'''
-#use the following code to get npy version of data:
-import scipy
-mat = scipy.io.loadmat(r'input\traced_model_inPixel.mat')
-data = mat['traced_model_inPixel']
-np.save('traced_model_inPixel.npy', data)
-mat = scipy.io.loadmat(r'input\MG_reconstruction_volume.mat')
-data = mat['final_Rec']
-np.save('MG_reconstruction_volume.npy', data)
-'''
-
-
-# new_model_file_path = 'input/traced_model_inPixel.npy'
-# Dsetvol_file_path = 'input/MG_reconstruction_volume.npy'
-# num_species = 3
-# local_radius = 10
-# output_fn='localC_res'
-
-# main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn)
+if __name__ == "__main__":
+    if len(sys.argv) != 6:
+        raise SystemExit(
+            "Usage: python -m pyaet.main_classification3 "
+            "<reconstruction.mat|npy> <traced_model.mat|npy> <num_species> "
+            "<local_radius_angstrom> <output_name>"
+        )
+    main_classification(
+        sys.argv[1],
+        sys.argv[2],
+        int(sys.argv[3]),
+        float(sys.argv[4]),
+        sys.argv[5],
+    )

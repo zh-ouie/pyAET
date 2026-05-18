@@ -29,6 +29,7 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
     label_start = 1 if classify_info.get('matlab_label', False) else 0
 
     endFlag = False
+    currDesc = []
     pre_atomtype = np.asarray(curr_types).copy()
     new_atomtype = np.zeros_like(pre_atomtype)
 
@@ -54,12 +55,15 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
 
         if np.sum(pre_atomtype != new_atomtype) == 0:
             endFlag = True
+            currDesc.append(0)
             pre_atomtype = new_atomtype.copy()
         else:
+            currDesc.append(int(np.sum(pre_atomtype != new_atomtype)))
             pre_atomtype = new_atomtype.copy()
-            StopCri -= 1
-            if StopCri <= 0:
-                endFlag = True
+            if len(currDesc) > StopCri:
+                cutCri = currDesc[-StopCri:]
+                if np.sum(np.asarray(cutCri) == currDesc[-1]) == len(cutCri):
+                    endFlag = True
 
     temp_model = curr_model
     temp_atomtype = new_atomtype

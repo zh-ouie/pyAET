@@ -1,5 +1,6 @@
-import numpy as np
 import os
+import sys
+import numpy as np
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist
@@ -298,12 +299,15 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     print("tracing finished.")
     return
 
-# Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'
-# Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/2reconstruction_sample.mat'
-
-# max_num_th=300
-# output_fn='initial_traced_model'
-# min_dist = 2
-
-# # Call the main function
-# main_polynomial_tracing(Dsetvol_file_path, max_num_th,min_dist, output_fn)
+if __name__ == "__main__":
+    if len(sys.argv) != 5:
+        raise SystemExit(
+            "Usage: python -m pyaet.main_polynomial_tracing2 "
+            "<reconstruction.mat|npy> <max_num_th> <min_dist_angstrom> <output_name>"
+        )
+    main_polynomial_tracing(
+        sys.argv[1],
+        int(sys.argv[2]),
+        float(sys.argv[3]),
+        sys.argv[4],
+    )
