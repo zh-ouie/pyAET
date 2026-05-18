@@ -49,7 +49,7 @@ def fit_gauss3D_PD(init_guess, xdata, ydata, *args):
         x[fixed == False] = x_current
         predictions = calc_gauss3D_PD(x, xdata)
 
-        return predictions.flatten() - ydata.flatten()
+        return predictions.flatten(order='F') - ydata.flatten(order='F')
 
     opt = {'xtol': 1e-12}
 
@@ -100,6 +100,6 @@ def calc_gauss3D_PD(x, xdata):
     D = np.diag([1 / x[5], 1 / x[6], 1 / x[7]])
 
     A = np.dot(np.dot(rotMAT.T, D), rotMAT)
-    y = x[1] * np.exp(-np.einsum('ij,ij->j', v, np.dot(A, v))).reshape(L, M, N) + x[0]
+    y = x[1] * np.exp(-np.einsum('ij,ij->j', v, np.dot(A, v))).reshape(L, M, N, order='F') + x[0]
 
     return y

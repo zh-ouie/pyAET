@@ -27,15 +27,18 @@ def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
     XX, YY, ZZ = np.meshgrid(
         np.arange(-half_size, half_size + ds, ds),
         np.arange(-half_size, half_size + ds, ds),
-        np.arange(-half_size, half_size + ds, ds)
+        np.arange(-half_size, half_size + ds, ds),
+        indexing='ij',
     )
 
     if SPHyn:
-        useInd = np.where(((XX ** 2 + YY ** 2 + ZZ ** 2) <= (half_size + 0.5 * ds) ** 2).flatten())[0]
+        useInd = np.where(
+            ((XX ** 2 + YY ** 2 + ZZ ** 2) <= (half_size + 0.5 * ds) ** 2).flatten(order='F')
+        )[0]
     else:
-        useInd = np.arange(len(XX))
+        useInd = np.arange(XX.size)
 
-    box_coordinates = create_box(box_arr.shape[0])
+    box_coordinates, _, _, _ = create_box(box_arr.shape[0])
 
     fit_param_init = [0, np.nanmax(mean_box), 0, 0, 0, 0.5, 0.5, 0.5, 0, 0, 0]
     fixed = np.full(11, False, dtype=bool)
@@ -45,16 +48,19 @@ def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
     if half_size == 0:
         fit_result = 0
     else:
-        fit_result = fit_gauss3D_PD(fit_param_init, box_coordinates, mean_box, fixed, lb, ub)
+        fit_result, _, _ = fit_gauss3D_PD(fit_param_init, box_coordinates, mean_box, fixed, lb, ub)
 
     print(f'fitted constant = {fit_result[0]:.2f}')
 
     for ind in range(box_arr.shape[3]):
         data_box = box_arr[:, :, :, ind]
         zero_box = np.zeros_like(mean_box, dtype=float) + fit_result[0]
+        data_box_flat = data_box.flatten(order='F')
+        zero_box_flat = zero_box.flatten(order='F')
+        mean_box_flat = mean_box.flatten(order='F')
 
-        R1 = np.sum(np.abs(data_box[useInd] - zero_box.flatten(order='F')[useInd]))
-        R2 = np.sum(np.abs(data_box[useInd] - mean_box.flatten(order='F')[useInd]))
+        R1 = np.sum(np.abs(data_box_flat[useInd] - zero_box_flat[useInd]))
+        R2 = np.sum(np.abs(data_box_flat[useInd] - mean_box_flat[useInd]))
         Rs[0, ind] = R1
         Rs[1, ind] = R2
 

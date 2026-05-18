@@ -1,6 +1,8 @@
+import json
 import numpy as np
 import os
-from scipy.interpolate import interpn
+import time
+from pathlib import Path
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist
@@ -12,6 +14,7 @@ from pyaet.src.calculate_3D_polynomial_Rogers import calculate_3D_polynomial_Rog
 from pyaet.src.calc_dX_dY_dZ_Rogers import calc_dX_dY_dZ_Rogers
 from pyaet.src.initial_class_kmean import initial_class_kmean
 from pyaet.src.io_helper import read_mat_file
+from pyaet.src.interp3_spline import interp3_spline
 
 def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     """
@@ -43,8 +46,18 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         Dsetvol = read_mat_file(Dsetvol_file_path)
     else:
         Dsetvol = np.load(Dsetvol_file_path)
+    print("PID:", os.getpid())
 
     output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
+    output_dir = Path(output_fn).resolve().parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    debug_output_path = os.environ.get("PYAET_TRACING_DEBUG_OUTPUT", "").strip()
+    if not debug_output_path:
+        debug_output_path = str(output_dir / f"tracing_debug_{max_num_th}")
+    initial_class_debug_output = os.environ.get("PYAET_INITIAL_CLASS_DEBUG_OUTPUT", "").strip()
+    if not initial_class_debug_output:
+        initial_class_debug_output = str(output_dir / f"initial_class_debug_{max_num_th}")
+    stage_start = time.perf_counter()
 
     # Constants
     max_iter = 14
@@ -68,10 +81,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     yyi = yyi[2:]  # Skip the first two elements
     zzi = zzi[2:]  # Skip the first two elements
 
-    points = (xx, yy, zz)
-    Yi, Xi, Zi = np.meshgrid(xxi, yyi, zzi)
-    
-    Dsetvol = interpn(points, Dsetvol, (Xi, Yi, Zi), method='cubic', bounds_error=False, fill_value=0)
+    Dsetvol = interp3_spline(Dsetvol, yy, xx, zz, yyi, xxi, zzi)
     FinalVol = my_paddzero(Dsetvol, np.array(Dsetvol.shape) + 20)
 
     # Get polynomial power array
@@ -102,7 +112,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
 
     dilatedBW = grey_dilation(FinalVol, footprint=se)
 
-    max_pos = np.where(((FinalVol == dilatedBW) & (FinalVol > Th)).flatten())[0]  #todo: still different from matlab. Maybe == is different.
+    max_pos = np.where(((FinalVol == dilatedBW) & (FinalVol > Th)).flatten(order='F'))[0]
     # max_pos = np.where((((FinalVol - dilatedBW) < 1e-7) & (FinalVol > Th)).flatten())[0]
     max_vals = FinalVol.flatten(order='F')[max_pos]
     sort_ind = np.argsort(max_vals)[::-1]
@@ -114,7 +124,8 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     max_XYZ = np.zeros((len(max_pos), 3),dtype=int)
     for i in range(len(max_pos)):
         xx_id, yy_id, zz_id = np.unravel_index(max_pos[i], FinalVol.shape, order='F')
-        max_XYZ[i, :] = np.array([xx_id-1, yy_id, zz_id])  #todo: only one dimen has a difference 1.
+        max_XYZ[i, :] = np.array([xx_id, yy_id, zz_id])
+    max_XYZ_base = max_XYZ + 1
 
     # Initialize parameters
     Q = 0.5
@@ -127,7 +138,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     Y = np.transpose(Y, (1,0,2))
     Z = np.transpose(Z, (1,0,2))
 
-    SphereInd = np.where((X**2 + Y**2 + Z**2 <= (search_rad + 0.5)**2).flatten())[0]
+    SphereInd = np.where((X**2 + Y**2 + Z**2 <= (search_rad + 0.5)**2).flatten(order='F'))[0]
     XYZdata = {'X': X.flatten(order='F')[SphereInd], 'Y': Y.flatten(order='F')[SphereInd], 'Z': Z.flatten(order='F')[SphereInd]}
 
     orders = fit_coeff[:, :3]
@@ -140,6 +151,8 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
 
     # Perform the main tracing loop
     # todo: still some error in the loop. in python, all exitFlagArr is negative. But we want 0.
+    peak_loop_start = time.perf_counter()
+    least_squares_s = 0.0
     for i in range(len(max_XYZ)):
         end_flag = False
         consec_accum = 0
@@ -182,7 +195,9 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
             x0 = coeff_arr[:, i]
             lb = -np.inf * np.ones_like(x0)  # Example lower bounds
             ub = np.inf * np.ones_like(x0)  # Example upper bounds
+            lsq_start = time.perf_counter()
             res = least_squares(residuals, x0, args=(XYZdata, cropVol, pos, orders), bounds=(lb, ub), method='trf', verbose=0)
+            least_squares_s += time.perf_counter() - lsq_start
             p1 = res.x # optimized parameters
             residuals = res.fun
             fminres1 = np.sum(residuals ** 2) # calculate the squared 2-norm of the residuals
@@ -209,21 +224,22 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
                         #     axis=1))
                         # Long change from max_XYZ[i, :] to max_XYZ[i, :] +1
                         dist = np.sqrt(np.sum(
-                            (goodAtomTotPos - np.tile(pos_arr[i, :] + max_XYZ[i, :] +1, (goodAtomTotPos.shape[0], 1))) ** 2,
+                            (goodAtomTotPos - np.tile(pos_arr[i, :] + max_XYZ_base[i, :], (goodAtomTotPos.shape[0], 1))) ** 2,
                             axis=1))
-                        if len(dist) == 0: #if empty.
-                            dist = 0
-                        if np.min(dist, 0) < min_dist:
+                        if len(dist) == 0:
+                            dist = np.array([np.inf])
+                        if np.min(dist) < min_dist:
                             exit_flag_arr[i] = -3
                         else:
-                            tot_pos_arr[i, :] = pos_arr[i, :] + max_XYZ[i, :]  # todo: max_XYZ +1 or not.
+                            tot_pos_arr[i, :] = pos_arr[i, :] + max_XYZ_base[i, :]
                         end_flag = True
                     else:
                         consec_accum += 1
                 else:
                     consec_accum = 0
 
-        print(f'peak {i}, flag {exit_flag_arr[i]}')
+        if i % 500 == 0 or i == len(max_XYZ) - 1:
+            print(f'peak {i}, flag {exit_flag_arr[i]}')
 
     # Do raw classification and get all candidates for manual tracing
     FinalVol_single = FinalVol.astype(np.single)
@@ -235,11 +251,17 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         'O_Ratio': 1,
         'SPHyn': True,
         'PLOT_YN': False,
-        'separate_part': 120
+        'separate_part': 120,
+        'debug_output_path': initial_class_debug_output,
     }
 
     atom_pos = tot_pos_arr[exit_flag_arr == 0, :].T
     atom_pos_all = atom_pos / 3 - 2
+    unique_flags, unique_counts = np.unique(exit_flag_arr, return_counts=True)
+    print("Exit flag summary:")
+    for flag, count in zip(unique_flags.tolist(), unique_counts.tolist(), strict=True):
+        print(f"  flag {flag}: {count}")
+    print(f"  candidate_atoms_before_boundary = {atom_pos.shape[1]}")
 
     b1 = np.where(np.logical_or(atom_pos[0, :] < 15, atom_pos[0, :] > FinalVol_single.shape[0] - 15))[0]
     b2 = np.where(np.logical_or(atom_pos[1, :] < 15, atom_pos[1, :] > FinalVol_single.shape[1] - 15))[0]
@@ -247,24 +269,33 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
 
     bT = np.union1d(np.union1d(b1, b2), b3)
     atom_pos = np.delete(atom_pos, bT, axis=1)
+    print(f"  candidate_atoms_after_boundary = {atom_pos.shape[1]}")
 
+    peak_loop_s = time.perf_counter() - peak_loop_start
+    class_start = time.perf_counter()
     temp_model, temp_atomtype = initial_class_kmean(
         FinalVol_single, atom_pos, classify_info)
+    classification_s = time.perf_counter() - class_start
+    print(f"  atoms_after_initial_classification = {temp_model.shape[1]}")
 
     atom_pos_o = temp_model / 3 - 2
 
     # Calculate support from reconstruction and get the atoms inside
+    support_sample_coords = np.round(atom_pos_o.T).astype(int) - 1
     support_para = {
         'th_dis_r_afterav': 0.90,
         'dilate_size': 15,
         'erode_size': 15,
-        'bw_size': 50000
+        'bw_size': 50000,
+        'debug_sample_coords': support_sample_coords,
     }
 
     # Implement the functions obtain_tight_support and my_paddzero similarly
-    tight_support1 = obtain_tight_support(Dsetvol, support_para)
+    tight_support1, support_debug1 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
     support_para['erode_size'] = 20
-    tight_support2 = obtain_tight_support(Dsetvol, support_para)
+    tight_support2, support_debug2 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
+    print(f"  tight_support1_voxels = {int(np.count_nonzero(tight_support1))}")
+    print(f"  tight_support2_voxels = {int(np.count_nonzero(tight_support2))}")
 
     # Exclude atoms near the boundary first
     bdl_1 = 8
@@ -277,32 +308,99 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     temp_pos_arr1 = []
     ind_arr1 = []
     for i in range(atom_pos_o.shape[1]):
-        temp_pos = np.round(atom_pos_o[:, i]).astype(int)
+        temp_pos = np.round(atom_pos_o[:, i]).astype(int) - 1
         if tight_support1[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
             temp_pos_arr1.append([atom_pos_o[:, i][0], atom_pos_o[:, i][1], atom_pos_o[:, i][2]])
             ind_arr1.append(i)
+    print(f"  atoms_inside_tight_support1 = {len(ind_arr1)}")
 
     # Exclude traced atoms outside the looser support
+    temp_pos_arr1_arr = np.asarray(temp_pos_arr1, dtype=float)
+    if temp_pos_arr1_arr.size == 0:
+        temp_pos_arr1_arr = temp_pos_arr1_arr.reshape(0, 3)
     ind_arr2 = []
     for i in range(atom_pos_all.shape[1]):
-        if np.min(cdist(atom_pos_all[:, i].T.reshape(1, 3), np.array(temp_pos_arr1), metric='euclidean')[0]) < 1e-4:
+        if temp_pos_arr1_arr.size and np.min(cdist(atom_pos_all[:, i].reshape(1, 3), temp_pos_arr1_arr, metric='euclidean')[0]) < 1e-4:
             ind_arr2.append(i)
         else:
-            temp_pos = np.round(atom_pos_all[:, i]).astype(int)
+            temp_pos = np.round(atom_pos_all[:, i]).astype(int) - 1
             if tight_support2[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
                 ind_arr2.append(i)
+    print(f"  atoms_after_support_filter = {len(ind_arr2)}")
 
+    support_filter_s = time.perf_counter() - class_start - classification_s
     temp_pos_arr2 = atom_pos_all[:, ind_arr2]
     np.save(output_file_path+".npy", temp_pos_arr2)
+    total_s = time.perf_counter() - stage_start
+    print("Tracing performance summary:")
+    print(f"  total_s = {total_s:.3f}")
+    print(f"  peak_count = {len(max_XYZ)}")
+    print(f"  peak_loop_s = {peak_loop_s:.3f}")
+    print(f"  least_squares_s = {least_squares_s:.3f}")
+    print(f"  avg_peak_s = {peak_loop_s / max(len(max_XYZ), 1):.6f}")
+    print(f"  classification_s = {classification_s:.3f}")
+    print(f"  support_filter_s = {support_filter_s:.3f}")
     print("tracing finished.")
+
+    if debug_output_path:
+        debug_npz_path = debug_output_path if debug_output_path.endswith(".npz") else debug_output_path + ".npz"
+        debug_json_path = debug_npz_path[:-4] + ".json"
+        debug_summary = {
+            "candidate_atoms_before_boundary": int(atom_pos_all.shape[1]),
+            "candidate_atoms_after_boundary": int(atom_pos.shape[1]),
+            "atoms_after_initial_classification": int(temp_model.shape[1]),
+            "tight_support1_voxels": int(np.count_nonzero(tight_support1)),
+            "tight_support2_voxels": int(np.count_nonzero(tight_support2)),
+            "tight_support1_threshold": float(support_debug1["threshold"]),
+            "tight_support2_threshold": float(support_debug2["threshold"]),
+            "atoms_inside_tight_support1": int(len(ind_arr1)),
+            "atoms_after_support_filter": int(len(ind_arr2)),
+            "exit_flag_summary": {int(k): int(v) for k, v in zip(unique_flags.tolist(), unique_counts.tolist(), strict=True)},
+            "peak_count": int(len(max_XYZ)),
+        }
+        np.savez_compressed(
+            debug_npz_path,
+            exit_flag_arr=exit_flag_arr,
+            max_XYZ=max_XYZ_base,
+            pos_arr=pos_arr,
+            tot_pos_arr=tot_pos_arr,
+            atom_pos=atom_pos,
+            atom_pos_all=atom_pos_all,
+            temp_model=temp_model,
+            temp_atomtype=temp_atomtype,
+            atom_pos_o=atom_pos_o,
+            temp_pos_arr1=temp_pos_arr1_arr,
+            ind_arr1=np.asarray(ind_arr1, dtype=int),
+            ind_arr2=np.asarray(ind_arr2, dtype=int),
+            temp_pos_arr2=temp_pos_arr2,
+            tight_support1=tight_support1.astype(np.uint8),
+            tight_support2=tight_support2.astype(np.uint8),
+            support_sample_coords=support_sample_coords,
+            support1_smoothed_sample=support_debug1["smoothed_sample"],
+            support1_threshold_sample=support_debug1["threshold_sample"],
+            support1_dilate3_sample=support_debug1["dilate3_sample"],
+            support1_dilateN_sample=support_debug1["dilateN_sample"],
+            support1_cleanup_sample=support_debug1["cleanup_sample"],
+            support1_final_sample=support_debug1["final_sample"],
+            support2_smoothed_sample=support_debug2["smoothed_sample"],
+            support2_threshold_sample=support_debug2["threshold_sample"],
+            support2_dilate3_sample=support_debug2["dilate3_sample"],
+            support2_dilateN_sample=support_debug2["dilateN_sample"],
+            support2_cleanup_sample=support_debug2["cleanup_sample"],
+            support2_final_sample=support_debug2["final_sample"],
+        )
+        with open(debug_json_path, "w", encoding="utf-8") as f:
+            json.dump(debug_summary, f, indent=2, sort_keys=True)
+        print(f"Saved tracing debug data to {debug_npz_path}")
+        print(f"Saved tracing debug summary to {debug_json_path}")
     return
 
 # Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/MG_reconstruction_volume.npy'
-Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/2reconstruction_sample.mat'
+# Dsetvol_file_path='/Users/longyang/Documents/Tongji/dev/pyAET/pyaet/input/2reconstruction_sample.mat'
 
-max_num_th=300
-output_fn='initial_traced_model'
-min_dist = 2
+# max_num_th=300
+# output_fn='initial_traced_model'
+# min_dist = 2
 
-# Call the main function
-main_polynomial_tracing(Dsetvol_file_path, max_num_th,min_dist, output_fn)
+# # Call the main function
+# main_polynomial_tracing(Dsetvol_file_path, max_num_th,min_dist, output_fn)

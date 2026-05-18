@@ -49,12 +49,14 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
     yYp = np.transpose(yYp, (1,0,2))
     zZp = np.transpose(zZp, (1,0,2))
 
-    SphereInd_plot = np.where(((xXp ** 2 + yYp ** 2 + zZp ** 2) <= (plot_half_size + 0.5) ** 2).flatten())[0]
+    SphereInd_plot = np.where(
+        ((xXp ** 2 + yYp ** 2 + zZp ** 2) <= (plot_half_size + 0.5) ** 2).flatten(order='F')
+    )[0]
 
     if SPHyn:
         useInd_plot = SphereInd_plot
     else:
-        useInd_plot = np.arange(len(xXp))
+        useInd_plot = np.arange(xXp.size)
 
     intensity_plot_arr = np.zeros((len(useInd_plot), temp_model.shape[1]))
 
@@ -62,7 +64,13 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
 
     for j in range(temp_model.shape[1]):
         curr_pos = np.round(temp_model[:, j]).astype(int)-1
-        # curr_pos = np.round(curr_pos/10).astype(int)-1 #todo: when testing small data, use this line. otherwise, delete this line.
+        if classify_info.get('small_debug', False):
+            curr_pos = np.round(curr_pos / 10).astype(int) - 1
+        if (curr_pos[0] - plot_half_size < 0 or curr_pos[1] - plot_half_size < 0 or curr_pos[2] - plot_half_size < 0 or
+            curr_pos[0] + plot_half_size + 1 > RecVol_padded.shape[0] or
+            curr_pos[1] + plot_half_size + 1 > RecVol_padded.shape[1] or
+            curr_pos[2] + plot_half_size + 1 > RecVol_padded.shape[2]):
+            continue
         box_integ = RecVol_padded[
             curr_pos[0] - plot_half_size : curr_pos[0] + plot_half_size + 1,
             curr_pos[1] - plot_half_size : curr_pos[1] + plot_half_size + 1,
@@ -74,16 +82,14 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
     hist_inten_plot, cen_integ_total_plot = np.histogram(intensity_integ_plot, bins=separate_part)
     cen_integ_total_plot = (cen_integ_total_plot[:-1] + cen_integ_total_plot[1:]) / 2
 
-    # Plot the histogram
-    plt.figure()
-    plt.hist(intensity_integ_plot, bins=separate_part)
-    plt.show()
-
     peak_info[0, :] = cen_integ_total_plot
     peak_info[1, :] = hist_inten_plot
     y_up = round(np.max(hist_inten_plot) / 10) * 12
 
     if PLOT_YN:
+        plt.figure()
+        plt.hist(intensity_integ_plot, bins=separate_part)
+        plt.show()
         fig, ax = plt.subplots(Num_types + 1, 1, figsize=(4, 9))
         ax[0].hist(intensity_integ_plot,  bins=cen_integ_total_plot)
         ax[0].set_xlim([0, np.ceil(np.max(intensity_integ_plot) / 5) * 5])
@@ -92,8 +98,11 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
         ax[0].set_ylabel('# Atoms')
         ax[0].set_title(f'Box Size {halfSize * 2 + 1}')
 
+    matlab_label = classify_info.get('matlab_label', False)
+    label_start = 1 if matlab_label else 0
     for i in range(Num_types):
-        intensity_integ_sub = intensity_integ_plot[temp_type == i]
+        label = i + label_start
+        intensity_integ_sub = intensity_integ_plot[temp_type == label]
         hist_inten_plot_sub, _ = np.histogram(intensity_integ_sub, bins=cen_integ_total_plot)
 
         # peak_info[i + 2, :] = hist_inten_plot_sub
@@ -105,10 +114,11 @@ def plot_class_hist(RecVol_padded, temp_model, temp_type, classify_info):
             ax[i+1].hist(intensity_integ_sub, bins=cen_integ_total_plot)
             ax[i+1].set_xlabel('Integrated Intensity (a.u.)')
             ax[i+1].set_ylabel('# Atoms')
-            ax[i+1].set_title(f'{np.sum(temp_type == i + 1)} Type {i + 1} Atoms')
+            ax[i+1].set_title(f'{np.sum(temp_type == label)} Type {label} Atoms')
             ax[i+1].set_ylim([0, y_up])
             ax[i+1].set_xlim([0, np.ceil(np.max(intensity_integ_plot) / 5) * 5])
-    plt.subplots_adjust(hspace=0.5)
-    plt.show()
+    if PLOT_YN:
+        plt.subplots_adjust(hspace=0.5)
+        plt.show()
 
     return peak_info, intensity_plot_arr
