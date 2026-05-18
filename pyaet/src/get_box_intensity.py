@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interpn
-from pyaet.splinterp.splinterp3 import mex_function3
+from pyaet.splinterp_cpp import mex_function3
 
 def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='linear'):
     """
@@ -18,6 +18,7 @@ def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='l
     - points (numpy.ndarray): Intensity values for points within the box.
 
     """
+    rec = np.asfortranarray(rec)
     Num_atom = curr_model.shape[1]
 
     # obtain global intensity histogram
@@ -31,9 +32,12 @@ def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='l
     ZZ=np.transpose(ZZ, (1,0,2))
 
     if SPHyn:
-        useInd = np.where(((XX**2 + YY**2 + ZZ**2) <= (half_size + 0.5 * ds) ** 2).flatten())[0]
+        useInd = np.where(
+            ((XX**2 + YY**2 + ZZ**2) <= (half_size + 0.5 * ds) ** 2).flatten(order='F')
+        )[0]
     else:
-        useInd = np.arange(len(XX))
+        # MATLAB uses 1:length(XX(:)) here; use the full flattened box.
+        useInd = np.arange(XX.size)
 
     # generate points coordinates
     XX_use = XX.flatten(order='F')[useInd]

@@ -1,14 +1,17 @@
-"""Public imports for the C++ splinterp extension.
+"""Public imports for the compiled splinterp extension.
 
-The compiled extension exposes Python-callable wrappers around the MATLAB MEX
-interpolation routines used by reconstruction and classification.
+The cleaned internal pipeline intentionally depends on the C++ interpolation
+extension. If this import fails, build the extension in this directory with:
+
+    python setup.py build_ext --inplace
 """
 
 try:
     from .splinterp_cpp import mex_function1, mex_function2, mex_function3
-except ImportError:
-    from pyaet.splinterp.splinterp1 import mex_function1
-    from pyaet.splinterp.splinterp2 import mex_function2
-    from pyaet.splinterp.splinterp3 import mex_function3
+except ImportError as exc:
+    raise ImportError(
+        "pyaet.splinterp_cpp is required. Build it with "
+        "`cd pyaet/splinterp_cpp && python setup.py build_ext --inplace`."
+    ) from exc
 
 __all__ = ["mex_function1", "mex_function2", "mex_function3"]

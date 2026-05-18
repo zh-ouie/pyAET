@@ -35,6 +35,8 @@ pip install pyfftw
 ## Build the C++ interpolation extension
 
 The NumPy reconstruction line expects `pyaet.splinterp_cpp` to be importable.
+The compiled extension is required for the release path; the old Python
+interpolation fallback is not used.
 
 From the repository root:
 
@@ -50,8 +52,7 @@ After that, this import should succeed:
 python -c "from pyaet.splinterp_cpp import mex_function2, mex_function3; print('splinterp_cpp ok')"
 ```
 
-If the extension is not available, some code paths can fall back to Python interpolation, but
-the intended Step1 path is the compiled CPP extension.
+If the extension is not available, build it before running reconstruction.
 
 ## Run the NumPy version directly
 
@@ -75,6 +76,28 @@ python pyaet/main_reconstruction1_numpy.py
 ```
 
 Outputs will be written next to the projection file path using `OUTPUT_FN`.
+
+The script now calls a reusable wrapper:
+
+```python
+main_reconstruction(
+    PROJECTIONS_FILE_PATH,
+    ANGLES_FILE_PATH,
+    RESIRE_PARAM,
+    OUTPUT_FN,
+)
+```
+
+Internally this wrapper still uses the same `RESIRE_Reconstructor` workflow:
+
+```python
+resire.read_files()
+resire.check_prepare_data()
+resire.run_gridding()
+reconstruct(resire)
+```
+
+These methods remain available in `pyaet/resire_numpy/RESIRE_Reconstructor.py`.
 
 ## Run on your own MG projections
 
