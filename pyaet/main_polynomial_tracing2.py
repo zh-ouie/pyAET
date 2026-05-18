@@ -283,16 +283,16 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     # Calculate support from reconstruction and get the atoms inside
     support_sample_coords = np.round(atom_pos_o.T).astype(int) - 1
     support_para = {
-        'th_dis_r_afterav': 0.90,
+        'th_dis_r_afterav': 0.9125,
         'dilate_size': 15,
-        'erode_size': 15,
+        'erode_size': 13,
         'bw_size': 50000,
         'debug_sample_coords': support_sample_coords,
     }
 
     # Implement the functions obtain_tight_support and my_paddzero similarly
     tight_support1, support_debug1 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
-    support_para['erode_size'] = 20
+    support_para['erode_size'] = 18
     tight_support2, support_debug2 = obtain_tight_support(Dsetvol, support_para, return_debug=True)
     print(f"  tight_support1_voxels = {int(np.count_nonzero(tight_support1))}")
     print(f"  tight_support2_voxels = {int(np.count_nonzero(tight_support2))}")
