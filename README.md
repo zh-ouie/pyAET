@@ -148,6 +148,30 @@ Use the reconstruction comparison utility for visual checks:
 pyaet/analysis/plot_reconstruction_comparison.py
 ```
 
+## GUI Development
+
+The repository also keeps GUI-related development notes. The GUI is separate from
+the Step1 reconstruction pipeline and uses PyQt5.
+
+Install the GUI dependencies only when working on the GUI:
+
+```bash
+pip install PyQt5
+pip install PyQt5-tools
+```
+
+Typical GUI development workflow:
+
+1. Run `pyqt5-tools designer` from a command line to open Qt Designer.
+2. Design the interface and save it as a `.ui` file.
+3. Convert the `.ui` file to Python code:
+
+```bash
+pyuic5 -x yourfile.ui -o yourfile.py
+```
+
+The generated Python file can then be imported into a PyQt5 application.
+
 ## Validation
 
 Before committing, run:
