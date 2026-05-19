@@ -13,17 +13,12 @@ if __package__ is None or __package__ == "":
 
 from pyaet.src.gradient_B_2type_difB import gradient_B_2type_difB
 from pyaet.src.gradient_fixHB_XYZ import gradient_fixHB_XYZ
+from pyaet.src.cal_Bproj_2type_fast import cal_Bproj_2type, cal_Bproj_2type2
 
-# Edit these release settings directly in code when switching Step4 variants.
-STEP4_BACKEND = "reference"
+# Release settings for Step4.
 STEP4_HB_OPTIMIZER = "matlab_trust_region"
 STEP4_LSQ_MAX_NFEV = None
 STEP4_LSQ_MAX_ITER = 400
-
-if STEP4_BACKEND in {"fast", "numba"}:
-    from pyaet.src.cal_Bproj_2type_fast import cal_Bproj_2type, cal_Bproj_2type2
-else:
-    from pyaet.src.cal_Bproj_2type import cal_Bproj_2type, cal_Bproj_2type2
 from pyaet.src.my_paddzero import my_paddzero
 from scipy.optimize import least_squares
 from pyaet.src.io_helper import read_mat_file 

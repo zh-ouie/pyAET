@@ -98,12 +98,9 @@ Entry:
 pyaet/main_position_refinement4.py
 ```
 
-Step4 keeps two projector implementations:
-
-- `reference` for MATLAB-like numerical behavior
-- `fast` for Numba-backed speed
-
-The current release sets the backend directly in code.
+The release Step4 path uses the validated Numba projector in
+`pyaet/src/cal_Bproj_2type_fast.py` together with the MATLAB-like
+trust-region H/B fitting routine.
 
 ## Dependencies
 
@@ -114,6 +111,16 @@ conda create -n pyaet python=3.10 -y
 conda activate pyaet
 pip install -r requirements.txt
 ```
+
+Optional dependencies are listed separately:
+
+```bash
+pip install -r requirements-optional.txt
+```
+
+The optional file includes GUI dependencies, the torch reconstruction variant,
+and FFT acceleration packages that are not required for the default release
+pipeline.
 
 ## Build
 
@@ -170,4 +177,4 @@ pyaet/analysis/plot_reconstruction_comparison.py
 
 - Step1, Step2, Step3, and Step4 each have their own main script.
 - The release keeps the validated MATLAB-aligned logic.
-- The fast backend is available for Step4 when you want speed.
+- Step4 uses the Numba-backed refinement projector in the release path.

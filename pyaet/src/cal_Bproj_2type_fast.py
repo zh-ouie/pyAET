@@ -16,7 +16,7 @@ else:
     _NUMBA_IMPORT_ERROR = None
 
 
-# Release settings: edit these directly in code when switching Step4 variants.
+# Release settings for the Numba projector.
 STEP4_FAST_ACCUM_MODE = "plane"  # "plane" or "channel"
 STEP4_TIMING = False
 
@@ -167,7 +167,7 @@ if njit is not None:
 def _require_numba():
     if njit is None:
         raise ImportError(
-            "AET_STEP4_BACKEND=fast requires numba. Install numba or use the default reference backend."
+            "Step4 refinement requires numba for the release projector."
         ) from _NUMBA_IMPORT_ERROR
 
 

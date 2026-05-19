@@ -4,8 +4,5 @@ matplotlib
 psutil
 pybind11
 scikit-learn
-pyfftw
-torch
 numba
-PyQt5
-PyQt5-tools
+h5py
