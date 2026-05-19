@@ -1,5 +1,3 @@
-import time
-
 import numpy as np
 
 from pyaet.src.my_ifft import my_ifft
@@ -16,11 +14,6 @@ else:
     _NUMBA_IMPORT_ERROR = None
 
 
-# Release settings for the Numba projector.
-STEP4_FAST_ACCUM_MODE = "plane"  # "plane" or "channel"
-STEP4_TIMING = False
-
-
 if njit is not None:
 
     @njit(cache=True)
@@ -28,71 +21,6 @@ if njit is not None:
         if x >= 0:
             return int(np.floor(x + np.float32(0.5)))
         return int(np.ceil(x - np.float32(0.5)))
-
-    @njit(cache=True, parallel=True)
-    def _accumulate_projected_atoms(
-        X_rot,
-        Y_rot,
-        Z_rot,
-        type_indices,
-        type_counts,
-        h,
-        b,
-        n1,
-        n2,
-        num_pj,
-        half_width,
-        atom_type_num,
-    ):
-        grad = np.zeros((n1, n2, num_pj, atom_type_num), dtype=np.float64)
-        center_x = (n1 + 1) // 2 - 1
-        center_y = (n2 + 1) // 2 - 1
-
-        # Match MATLAB loop order: projection -> atom type -> atoms of that type.
-        for i in prange(num_pj):
-            for j in range(atom_type_num):
-                hj = h[j]
-                bj = b[j]
-                for type_pos in range(type_counts[j]):
-                    k = type_indices[j, type_pos]
-
-                    x_cen = float(X_rot[i, k])
-                    y_cen = float(Y_rot[i, k])
-                    z_cen = float(Z_rot[i, k])
-                    x_round = _matlab_round_scalar(x_cen)
-                    y_round = _matlab_round_scalar(y_cen)
-                    z_round = _matlab_round_scalar(z_cen)
-                    x_round_f = np.float32(x_round)
-                    y_round_f = np.float32(y_round)
-                    z_round_f = np.float32(z_round)
-
-                    z_sum = np.float32(0.0)
-                    z_delta0 = z_round_f - z_cen
-                    for dz in range(-half_width, half_width + 1):
-                        z_delta = np.float32(dz) + z_delta0
-                        z_sum += np.float32(np.exp(-np.float32((z_delta * z_delta) * bj)))
-
-                    x_delta0 = x_round_f - x_cen
-                    y_delta0 = y_round_f - y_cen
-                    base_x = x_round + center_x
-                    base_y = y_round + center_y
-
-                    for dx in range(-half_width, half_width + 1):
-                        xx = base_x + dx
-                        x_delta = np.float32(dx) + x_delta0
-                        x_l2 = np.float32(x_delta * x_delta)
-                        for dy in range(-half_width, half_width + 1):
-                            yy = base_y + dy
-                            y_delta = np.float32(dy) + y_delta0
-                            l2_xy = np.float32(x_l2 + y_delta * y_delta)
-                            exp_xy = np.float32(np.exp(-np.float32(l2_xy * bj)))
-                            patch = np.float32(hj * np.float32(exp_xy * z_sum))
-                            # MATLAB accumulates in a per-type Grad channel.
-                            # Grad(double) + patch(single) returns single
-                            # before assignment back to double.
-                            grad[xx, yy, i, j] = np.float32(np.float32(grad[xx, yy, i, j]) + patch)
-
-        return grad
 
     @njit(cache=True, parallel=True)
     def _accumulate_projected_atoms_plane(
@@ -188,8 +116,6 @@ def cal_Bproj_2type(para, xdata, ydata, fit_flag=True):
     n1, n2, _ = ydata.shape
     num_pj = angles.shape[0]
 
-    timings = {}
-    t0 = time.perf_counter()
     model_scaled = model / Res
 
     # Cache static quantities across LSQ residual calls. During an H/B fit,
@@ -239,64 +165,32 @@ def cal_Bproj_2type(para, xdata, ydata, fit_flag=True):
             "type_indices": type_indices,
             "type_counts": type_counts,
         })
-    timings["static_s"] = time.perf_counter() - t0
-
     para = np.reshape(np.asarray(para, dtype=np.float64), [2, atom_type_num], order="F")
     h = para[0, :] / para[0, 0]
     b = (np.pi * Res) ** 2 / para[1, :]
 
-    t1 = time.perf_counter()
-    if STEP4_FAST_ACCUM_MODE == "plane":
-        projs = _accumulate_projected_atoms_plane(
-            X_rot,
-            Y_rot,
-            Z_rot,
-            type_indices,
-            type_counts,
-            h.astype(np.float64),
-            b.astype(np.float64),
-            n1,
-            n2,
-            num_pj,
-            int(half_width),
-            atom_type_num,
-        )
-    else:
-        grad = _accumulate_projected_atoms(
-            X_rot,
-            Y_rot,
-            Z_rot,
-            type_indices,
-            type_counts,
-            h.astype(np.float64),
-            b.astype(np.float64),
-            n1,
-            n2,
-            num_pj,
-            int(half_width),
-            atom_type_num,
-        )
-        projs = np.sum(grad, axis=3)
-    timings["splat_s"] = time.perf_counter() - t1
+    projs = _accumulate_projected_atoms_plane(
+        X_rot,
+        Y_rot,
+        Z_rot,
+        type_indices,
+        type_counts,
+        h.astype(np.float64),
+        b.astype(np.float64),
+        n1,
+        n2,
+        num_pj,
+        int(half_width),
+        atom_type_num,
+    )
 
-    t2 = time.perf_counter()
     for i in range(num_pj):
         projs[:, :, i] = np.real(my_ifft(my_fft(projs[:, :, i]) * fixed_fa))
-    timings["fft_s"] = time.perf_counter() - t2
 
-    t3 = time.perf_counter()
     projs_flat = projs.ravel(order="F")
     ydata_flat = ydata.ravel(order="F")
     k = np.sum(projs_flat * ydata_flat) / np.sum(projs_flat ** 2)
     projs = projs * k
-    timings["scale_s"] = time.perf_counter() - t3
-    timings["total_inner_s"] = sum(timings.values())
-    if STEP4_TIMING:
-        print(
-            "cal_Bproj_fast timing: "
-            + ", ".join(f"{name}={value:.3f}" for name, value in timings.items()),
-            flush=True,
-        )
 
     param = np.vstack([k * h, (np.pi * Res) ** 2 / b])
     return projs, param
