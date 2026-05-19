@@ -23,6 +23,7 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
     radius = classify_info.get('radius', 15)
     SPHyn = classify_info.get('SPHyn', True)
 
+
     box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
 
     num_types = len(np.unique(curr_types))
@@ -48,7 +49,8 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
                 true_indices = np.where(BallInd & temp_type)[0]
                 mean_box_inten = np.mean(box_inten[:, true_indices], axis=1)
                 R_temp_type = np.linalg.norm((box_inten[:, i] - mean_box_inten), lnorm)
-                R_arr[j] = np.nan_to_num(R_temp_type, nan=0)
+
+                R_arr[j] = R_temp_type
 
             MinInd = np.argmin(R_arr)
             new_atomtype[i] = MinInd + label_start
@@ -58,19 +60,14 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
             currDesc.append(0)
             pre_atomtype = new_atomtype.copy()
         else:
-            currDesc.append(int(np.sum(pre_atomtype != new_atomtype)))
+            currDesc.append(np.sum(pre_atomtype != new_atomtype))
             pre_atomtype = new_atomtype.copy()
             if len(currDesc) > StopCri:
                 cutCri = currDesc[-StopCri:]
-                if np.sum(np.asarray(cutCri) == currDesc[-1]) == len(cutCri):
+                if np.sum(np.where(cutCri == currDesc[-1], 1, 0)) == len(cutCri):
                     endFlag = True
 
     temp_model = curr_model
     temp_atomtype = new_atomtype
-
-    for i in range(num_types):
-        label = i + label_start
-        print(f'number of type {label} atoms: {np.sum(temp_atomtype == label)}')
-    print(f'number of total atoms: {temp_atomtype.size}')
 
     return temp_model, temp_atomtype
