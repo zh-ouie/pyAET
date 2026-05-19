@@ -20,23 +20,21 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
     StopCri = classify_info.get('StopCri', 5)
     half_size = classify_info.get('half_size', 1)
     O_Ratio = classify_info.get('O_Ratio', 1)
-    radius = classify_info.get('radius', 10)
+    radius = classify_info.get('radius', 15)
     SPHyn = classify_info.get('SPHyn', True)
-
 
     box_inten = get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, 'linear')
 
-    #Long: Note that in matlab, we label atom type from 1, but in python, we start from 0.
     num_types = len(np.unique(curr_types))
+    label_start = 1 if classify_info.get('matlab_label', False) else 0
 
     endFlag = False
     currDesc = []
-    pre_atomtype = curr_types
-    #Long: in python, we label atom type from 0. so we initialize the temporary variable using -1 here.
-    new_atomtype = np.ones(len(curr_types)) * (-1)
+    pre_atomtype = np.asarray(curr_types).copy()
+    new_atomtype = np.zeros_like(pre_atomtype)
 
     while not endFlag:
-        print('new round:')
+        new_atomtype = np.zeros_like(pre_atomtype)
 
         for i in range(curr_model.shape[1]):
             curr_atompos = curr_model[:, i]
@@ -45,40 +43,34 @@ def local_class_kmean_sub(rec, curr_model, curr_types, classify_info):
 
             R_arr = np.zeros(num_types)
             for j in range(num_types):
-                temp_type = (pre_atomtype == j)
-
-                # R_temp_type = np.linalg.norm((box_inten[:, i] - np.mean(box_inten[:, (BallInd & temp_type)[0]], axis=1)), lnorm)
-
-                true_indices = np.where((BallInd & temp_type)[0])[0]
+                label = j + label_start
+                temp_type = (pre_atomtype == label)
+                true_indices = np.where(BallInd & temp_type)[0]
                 mean_box_inten = np.mean(box_inten[:, true_indices], axis=1)
                 R_temp_type = np.linalg.norm((box_inten[:, i] - mean_box_inten), lnorm)
-
-                #Long add:replace nan with 0, otherwise it will stop here.
-                R_temp_type = np.nan_to_num(R_temp_type, nan=0)
-
-                R_arr[j] = R_temp_type
+                R_arr[j] = np.nan_to_num(R_temp_type, nan=0)
 
             MinInd = np.argmin(R_arr)
-            new_atomtype[i] = MinInd
-
-        for i in range(num_types):
-            print_arr = f'num{i}: {np.sum(new_atomtype == i)}; '
-            print(print_arr)
+            new_atomtype[i] = MinInd + label_start
 
         if np.sum(pre_atomtype != new_atomtype) == 0:
             endFlag = True
             currDesc.append(0)
-            pre_atomtype = new_atomtype
+            pre_atomtype = new_atomtype.copy()
         else:
-            print(f'discrepency: {np.sum(pre_atomtype != new_atomtype)}')
-            currDesc.append(np.sum(pre_atomtype != new_atomtype))
-            pre_atomtype = new_atomtype
+            currDesc.append(int(np.sum(pre_atomtype != new_atomtype)))
+            pre_atomtype = new_atomtype.copy()
             if len(currDesc) > StopCri:
                 cutCri = currDesc[-StopCri:]
-                if np.sum(np.where(cutCri == currDesc[-1], 1, 0)) == len(cutCri):
+                if np.sum(np.asarray(cutCri) == currDesc[-1]) == len(cutCri):
                     endFlag = True
 
     temp_model = curr_model
     temp_atomtype = new_atomtype
+
+    for i in range(num_types):
+        label = i + label_start
+        print(f'number of type {label} atoms: {np.sum(temp_atomtype == label)}')
+    print(f'number of total atoms: {temp_atomtype.size}')
 
     return temp_model, temp_atomtype

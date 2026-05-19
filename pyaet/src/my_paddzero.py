@@ -1,6 +1,6 @@
 import numpy as np
 
-def my_paddzero(Vol, paddedsize):
+def my_paddzero(Vol, paddedsize, dtype=np.float32):
     """
     Pad a N-dimensional array with zeros to match the specified size.
 
@@ -24,7 +24,9 @@ def my_paddzero(Vol, paddedsize):
     elif np.any(np.array(Vol.shape) > np.array(paddedsize)):
         print("paddedsize should be equal to or larger than the original volume in all dimensions!")
     else:
-        PadVol = np.zeros(paddedsize)
+        # MATLAB My_paddzero defaults to single output, so assignment into the
+        # padded array rounds the input to single precision unless overridden.
+        PadVol = np.zeros(paddedsize, dtype=dtype)
         currevalstr = 'PadVol['
         for i in range(len(Vol.shape)):
             if Vol.shape[i] % 2 == 0:
