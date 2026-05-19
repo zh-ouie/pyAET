@@ -6,7 +6,6 @@ try:
     from pyfftw.interfaces.numpy_fft import fftn as fftn_fftw
 
     pyfftw.interfaces.cache.enable()
-
     def _fftn(x):
         return fftn_fftw(x, threads=1, planner_effort="FFTW_MEASURE")
 except Exception:

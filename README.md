@@ -1,69 +1,123 @@
 # pyAET
 
-`pyAET` is a Python implementation of the Step1 atomic electron tomography (AET)
-reconstruction workflow. It reconstructs a 3D volume from measured tilt-series
-projections and projection angles using the RESIRE-style iterative reconstruction
-pipeline.
+`pyAET` is a Python implementation of the AET workflow used in this project.
+The repository is organized around the main processing steps:
 
-This release keeps the reconstruction workflow script-driven and close to the
-original MATLAB usage: edit the parameter block near the top of the main script,
-then run the script directly.
+1. Step1: reconstruction
+2. Step2: tracing
+3. Step3: classification
+4. Step4: position refinement
 
-## Step1 Reconstruction
+The release goal is practical parity with the validated MATLAB workflow while
+keeping the code runnable as a regular Python project.
 
-The supported reconstruction path is the NumPy/C++ implementation:
+## Contents
 
-```text
-pyaet/main_reconstruction1_numpy.py
-pyaet/resire_numpy/
-pyaet/splinterp_cpp/
-```
+- [Overview](#overview)
+- [Repository Layout](#repository-layout)
+- [Workflow](#workflow)
+- [Dependencies](#dependencies)
+- [Build](#build)
+- [Usage](#usage)
+- [GUI Development](#gui-development)
+- [Analysis](#analysis)
 
-The torch line is also included for GPU-oriented development:
+## Overview
 
-```text
-pyaet/main_reconstruction1_torch.py
-pyaet/resire_torch/
-```
-
-The C++ interpolation extension is required. The old Python interpolation fallback
-has been removed from the release path so the code uses the same compiled
-interpolation kernels used in the validated workstation runs.
+The codebase keeps the verified MATLAB-aligned logic and the fast backends
+where they are useful. Each step has its own entry script so it can be run
+independently.
 
 ## Repository Layout
 
 ```text
 pyaet/
-  main_reconstruction1_numpy.py   # NumPy/C++ Step1 entry point
-  main_reconstruction1_torch.py   # torch Step1 entry point
-  resire_numpy/                   # NumPy reconstruction implementation
-  resire_torch/                   # torch reconstruction implementation
-  splinterp_cpp/                  # pybind11 C++ interpolation extension
+  main_reconstruction1_numpy.py
+  main_reconstruction1_torch.py
+  main_polynomial_tracing2.py
+  main_classification3.py
+  main_position_refinement4.py
+  resire_numpy/
+  resire_torch/
+  splinterp_cpp/
+  src/
   analysis/
-    plot_reconstruction_comparison.py
-tests/                            # Step1 example/smoke scripts
+  output/
+tests/
+docs/
 ```
 
-## Installation
+## Workflow
+
+### Step1: Reconstruction
+
+Reconstruct a 3D volume from measured tilt-series projections and angles.
+
+Entry:
+
+```text
+pyaet/main_reconstruction1_numpy.py
+```
+
+The C++ interpolation extension is required for the release path.
+
+### Step2: Tracing
+
+Trace atomic candidates from the reconstructed volume and apply support-based
+filtering.
+
+Entry:
+
+```text
+pyaet/main_polynomial_tracing2.py
+```
+
+### Step3: Classification
+
+Classify traced atoms into species using the validated local/global
+k-means-based pipeline.
+
+Entry:
+
+```text
+pyaet/main_classification3.py
+```
+
+### Step4: Position Refinement
+
+Refine the atomic coordinates against measured projections. The refinement
+pipeline includes:
+
+- H/B fitting
+- `gradient_B_2type_difB`
+- `gradient_fixHB_XYZ`
+
+Entry:
+
+```text
+pyaet/main_position_refinement4.py
+```
+
+Step4 keeps two projector implementations:
+
+- `reference` for MATLAB-like numerical behavior
+- `fast` for Numba-backed speed
+
+The current release sets the backend directly in code.
+
+## Dependencies
 
 Recommended environment:
 
 ```bash
 conda create -n pyaet python=3.10 -y
 conda activate pyaet
-pip install numpy scipy matplotlib psutil pybind11
+pip install -r requirements.txt
 ```
 
-Optional dependencies:
+## Build
 
-```bash
-pip install pyfftw
-pip install torch
-```
-
-## Build the C++ Extension
-
-Build the interpolation extension from the repository root:
+Build the C++ interpolation extension from the repository root:
 
 ```bash
 cd pyaet/splinterp_cpp
@@ -71,98 +125,34 @@ python setup.py build_ext --inplace
 cd ../..
 ```
 
-Check the build:
+## Usage
 
-```bash
-python -c "from pyaet.splinterp_cpp import mex_function1, mex_function2, mex_function3; print('splinterp_cpp ok')"
-```
-
-The `setup.py` file only controls how the pybind11 extension is compiled. The
-public Python interface remains:
-
-```python
-from pyaet.splinterp_cpp import mex_function1, mex_function2, mex_function3
-```
-
-## Run Reconstruction
-
-Edit the parameter block in:
-
-```text
-pyaet/main_reconstruction1_numpy.py
-```
-
-Then run:
-
-```bash
-python pyaet/main_reconstruction1_numpy.py
-```
-
-The entry script wraps the same reconstruction class workflow used before:
-
-```python
-resire = RESIRE_Reconstructor()
-resire.read_files()
-resire.check_prepare_data()
-resire.run_gridding()
-reconstruct(resire)
-```
-
-Those class methods are still present in `pyaet/resire_numpy/RESIRE_Reconstructor.py`.
-The main script now calls them through `main_reconstruction(...)` so tests and
-other scripts can reuse the same entry point.
-
-## Inputs and Outputs
-
-Step1 expects:
-
-- projection data, shaped as image height x image width x number of projections
-- angle data, shaped as number of projections x 3
-
-Small sample inputs are included:
-
-```text
-pyaet/input/sample_projections_amorphous.mat
-pyaet/input/sample_angles_amorphous.mat
-```
-
-Outputs are saved next to the projection file path using the configured
-`OUTPUT_FN`.
-
-## Threading
-
-The C++ interpolation extension reads `SPLINTERP_NUM_THREADS`.
+Run each step through its main script.
 
 Example:
 
 ```bash
-export SPLINTERP_NUM_THREADS=16
 python pyaet/main_reconstruction1_numpy.py
-```
-
-## Analysis Utility
-
-Use the reconstruction comparison utility for visual checks:
-
-```text
-pyaet/analysis/plot_reconstruction_comparison.py
+python pyaet/main_polynomial_tracing2.py
+python pyaet/main_classification3.py
+python pyaet/main_position_refinement4.py
 ```
 
 ## GUI Development
 
-The repository also keeps GUI-related development notes. The GUI is separate from
-the Step1 reconstruction pipeline and uses PyQt5.
+The repository also keeps GUI-related development notes. The GUI is separate
+from the main AET workflow and uses PyQt5.
 
-Install the GUI dependencies only when working on the GUI:
+Install GUI dependencies only when needed:
 
 ```bash
 pip install PyQt5
 pip install PyQt5-tools
 ```
 
-Typical GUI development workflow:
+Typical GUI workflow:
 
-1. Run `pyqt5-tools designer` from a command line to open Qt Designer.
+1. Run `pyqt5-tools designer` to open Qt Designer.
 2. Design the interface and save it as a `.ui` file.
 3. Convert the `.ui` file to Python code:
 
@@ -170,23 +160,14 @@ Typical GUI development workflow:
 pyuic5 -x yourfile.ui -o yourfile.py
 ```
 
-The generated Python file can then be imported into a PyQt5 application.
+## Analysis
 
-## Validation
-
-Before committing, run:
-
-```bash
-python -m py_compile \
-  pyaet/main_reconstruction1_numpy.py \
-  pyaet/main_reconstruction1_torch.py \
-  pyaet/resire_numpy/RESIRE_Reconstructor.py \
-  pyaet/resire_numpy/reconstruct.py \
-  pyaet/resire_numpy/interp_pj_realspace.py \
-  pyaet/splinterp_cpp/__init__.py \
-  pyaet/splinterp_cpp/setup.py
+```text
+pyaet/analysis/plot_reconstruction_comparison.py
 ```
 
-## License
+## Notes
 
-See [LICENSE](./LICENSE).
+- Step1, Step2, Step3, and Step4 each have their own main script.
+- The release keeps the validated MATLAB-aligned logic.
+- The fast backend is available for Step4 when you want speed.
