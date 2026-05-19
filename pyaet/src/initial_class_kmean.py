@@ -131,7 +131,6 @@ def initial_class_kmean(rec, curr_model, classify_info):
     O_Ratio = classify_info.get('O_Ratio', 1)
     SPHyn = classify_info.get('SPHyn', True)
     PLOT_YN = classify_info.get('PLOT_YN', False)
-    
     random_state = classify_info.get('random_state', 42)
 
     # Generate points of intensities
@@ -245,7 +244,7 @@ def initial_class_kmean(rec, curr_model, classify_info):
             else:
                 intensity_integ_sub = np.sum(box_inten_plot_sub[:, idx == i - 1], axis=0)
                 plt.hist(intensity_integ_sub, bins=cen_integ_total_plot_sub)
-                plt.title(f'{np.sum(idx == i - 1)} Type {i - 1} atoms') #todo: check
+                plt.title(f'{np.sum(idx == i - 1)} Type {i - 1} atoms')
             plt.xlabel('integrated intensity (a.u.)')
             plt.ylabel('# atoms')
             plt.ylim([0, y_up])
@@ -255,11 +254,9 @@ def initial_class_kmean(rec, curr_model, classify_info):
     else:
         print('Initial classification:')
         for i in range(num_species):
-            print(f'number of type {i + 1} atoms: {np.sum(idx == i)}') #todo: check
+            print(f'number of type {i + 1} atoms: {np.sum(idx == i)}')
         print(f'number of total atoms: {len(idx)}')
 
     temp_atomtype = idx
 
     return temp_model, temp_atomtype
-
-# Note: You would need to define `initial_class_L1norm` as it is called in this function.
