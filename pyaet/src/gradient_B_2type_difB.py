@@ -4,6 +4,12 @@ from pyaet.src.my_fft import my_fft
 from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
 from pyaet.src.make_fixed_fa_man import make_fixed_fa_man
 
+
+def _matlab_round(x):
+    x = np.asarray(x)
+    return np.sign(x) * np.floor(np.abs(x) + 0.5)
+
+
 def gradient_B_2type_difB(para, xdata, ydata):
     print('\nHB gradient algorithm')
     errR = []
@@ -23,11 +29,13 @@ def gradient_B_2type_difB(para, xdata, ydata):
     N1, N2, num_pj = ydata.shape
     N_s = 2 * half_width + 1
     
-    fixed_fa = make_fixed_fa_man([N1, N2], Res, Z_arr).reshape(N1, N2)
-    max_fa = np.max(np.abs(fixed_fa))
-    model = model / Res
+    state_dtype = np.float32
 
-    dtype = np.float32
+    fixed_fa = np.asarray(make_fixed_fa_man([N1, N2], Res, Z_arr).reshape(N1, N2), dtype=state_dtype)
+    max_fa = np.max(np.abs(fixed_fa))
+    model = np.asarray(model / Res, dtype=state_dtype)
+
+    dtype = state_dtype
     X_rot = np.zeros((num_pj, num_atom), dtype=dtype)
     Y_rot = np.zeros((num_pj, num_atom), dtype=dtype)
     Z_rot = np.zeros((num_pj, num_atom), dtype=dtype)
@@ -43,12 +51,14 @@ def gradient_B_2type_difB(para, xdata, ydata):
         Y_rot[i, :] = rot_coords[1, :]
         Z_rot[i, :] = rot_coords[2, :]
     
-    X_crop, Y_crop = np.meshgrid(np.arange(-half_width, half_width + 1), np.arange(-half_width, half_width + 1))
-    Z_crop = np.arange(-half_width, half_width + 1)
+    # MATLAB uses ndgrid for [X_crop, Y_crop]
+    grid = np.arange(-half_width, half_width + 1, dtype=state_dtype)
+    X_crop, Y_crop = np.meshgrid(grid, grid, indexing='ij')
+    Z_crop = np.arange(-half_width, half_width + 1, dtype=state_dtype)
 
     para = np.reshape(para, [2, atom_type_num])
-    h = para[0, :] / para[0, 0]
-    b = (np.pi * Res) ** 2 / para[1, :]
+    h = np.asarray(para[0, :] / para[0, 0], dtype=state_dtype)
+    b = np.asarray((np.pi * Res) ** 2 / para[1, :], dtype=state_dtype)
     
     num_atom_type = np.zeros(atom_type_num, dtype=int)
     for j in range(atom_type_num):
@@ -57,9 +67,9 @@ def gradient_B_2type_difB(para, xdata, ydata):
     t = (step_sz / max_fa ** 2 / num_pj / N1 ** 2) / num_atom_type
     
     for iter in range(iterations):
-        grad = np.zeros((N1, N2, num_pj, 3), dtype=np.float32)
-        grad_h = np.zeros((N1, N2, num_pj, 3), dtype=np.float32)
-        grad_b = np.zeros((N1, N2, num_pj, 3), dtype=np.float32)
+        grad = np.zeros((N1, N2, num_pj, 3), dtype=state_dtype)
+        grad_h = np.zeros((N1, N2, num_pj, 3), dtype=state_dtype)
+        grad_b = np.zeros((N1, N2, num_pj, 3), dtype=state_dtype)
         
         for i in range(num_pj):
             for j in range(atom_type_num):
@@ -74,9 +84,9 @@ def gradient_B_2type_difB(para, xdata, ydata):
                 Y_cen = Y_rot[i, atom_type_j]
                 Z_cen = Z_rot[i, atom_type_j]
 
-                X_round = np.round(X_cen).astype(int)
-                Y_round = np.round(Y_cen).astype(int)
-                Z_round = np.round(Z_cen).astype(int)
+                X_round = _matlab_round(X_cen).astype(int)
+                Y_round = _matlab_round(Y_cen).astype(int)
+                Z_round = _matlab_round(Z_cen).astype(int)
 
                 l2_xy = (np.add.outer(X_crop, X_round - X_cen) ** 2 +
                          np.add.outer(Y_crop, Y_round - Y_cen) ** 2)
@@ -100,9 +110,12 @@ def gradient_B_2type_difB(para, xdata, ydata):
                     grad_h[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i, j] += pj_j[:, :, k]
                     grad_b[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i, j] += bj_j[:, :, k]
         
-        projs = np.sum(grad, axis=3)
+        projs = np.sum(grad, axis=3, dtype=state_dtype)
         for i in range(num_pj):
-            projs[:, :, i] = np.real( my_ifft( my_fft(projs[:, :, i]) * fixed_fa ) ) #todo: check
+            projs[:, :, i] = np.asarray(
+                np.real(my_ifft(my_fft(projs[:, :, i]) * fixed_fa)),
+                dtype=state_dtype,
+            )
 
         k = np.sum(projs.flatten() * ydata.flatten()) / np.sum(projs.flatten() ** 2)
         projs = projs * k
@@ -120,7 +133,7 @@ def gradient_B_2type_difB(para, xdata, ydata):
         h = h / h[0]
         b = np.maximum(b, 0)
 
-    param = np.vstack([k * h, (np.pi * Res) ** 2 / b])
+    param = np.vstack([k * h, (np.pi * Res) ** 2 / b]).astype(np.float64, copy=False)
 
     # return projs, param.flatten(), errR
     return projs, param, errR

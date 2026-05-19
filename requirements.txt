@@ -1,0 +1,8 @@
+numpy
+scipy
+matplotlib
+psutil
+pybind11
+scikit-learn
+numba
+h5py

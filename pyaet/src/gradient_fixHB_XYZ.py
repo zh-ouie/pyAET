@@ -5,6 +5,11 @@ from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
 from pyaet.src.make_fixed_fa_man import make_fixed_fa_man
 
 
+def _matlab_round(x):
+    x = np.asarray(x)
+    return np.sign(x) * np.floor(np.abs(x) + 0.5)
+
+
 def gradient_fixHB_XYZ(para, xdata, ydata):
     print('\nHB gradient algorithm')
     errR = []
@@ -18,20 +23,23 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
     model = xdata['model']
     model_ori = xdata['model_ori']
     angles = xdata['angles']
-    atom = xdata['atoms'][0] #todo: check
+    state_dtype = np.float32
+    atom = np.asarray(xdata['atoms']).ravel(order='F')
 
     num_atom = atom.size
     atom_type_num = len(np.unique(atom))
 
     N1, N2, num_pj = ydata.shape
 
-    fixed_fa = make_fixed_fa_man([N1, N2], Res, Z_arr).reshape(N1, N2)
-    model = model / Res
-    model_ori = model_ori / Res
+    fixed_fa = np.asarray(make_fixed_fa_man([N1, N2], Res, Z_arr).reshape(N1, N2), dtype=state_dtype)
+    model = np.asarray(model / Res, dtype=state_dtype)
+    model_ori = np.asarray(model_ori / Res, dtype=state_dtype)
 
-    dtype = np.float32
-    Y_crop, X_crop = np.meshgrid(np.arange(-half_width, half_width + 1), np.arange(-half_width, half_width + 1))
-    Z_crop = np.arange(-half_width, half_width + 1)
+    dtype = state_dtype
+    # MATLAB uses ndgrid for [X_crop, Y_crop]
+    grid = np.arange(-half_width, half_width + 1, dtype=state_dtype)
+    X_crop, Y_crop = np.meshgrid(grid, grid, indexing='ij')
+    Z_crop = np.arange(-half_width, half_width + 1, dtype=state_dtype)
 
     para = np.reshape(para, [2, atom_type_num])
     h = np.zeros(num_atom, dtype=dtype)
@@ -55,17 +63,17 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
     N_s = 2 * half_width + 1
     index = np.zeros((2, num_pj, num_atom), dtype=np.int32)
 
-    grad_h_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=np.float32)
-    grad_b_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=np.float32)
-    grad_x_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=np.float32)
-    grad_y_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=np.float32)
-    grad_z_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=np.float32)
+    grad_h_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
+    grad_b_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
+    grad_x_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
+    grad_y_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
+    grad_z_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
 
-    h = h.astype(np.float32)
-    b = b.astype(np.float32)
-    X_crop = X_crop.astype(np.float32)
-    Y_crop = Y_crop.astype(np.float32)
-    Z_crop = Z_crop.astype(np.float32)
+    h = h.astype(dtype)
+    b = b.astype(dtype)
+    X_crop = X_crop.astype(dtype)
+    Y_crop = Y_crop.astype(dtype)
+    Z_crop = Z_crop.astype(dtype)
 
     X_ori = model_ori[0, :].reshape((1, 1, num_atom))
     Y_ori = model_ori[1, :].reshape((1, 1, num_atom))
@@ -86,7 +94,7 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
     scale = 1 / Res
 
     for iter in range(iterations):
-        projs = np.zeros((N1, N2, num_pj), dtype=np.float32)
+        projs = np.zeros((N1, N2, num_pj), dtype=dtype)
 
         for i in range(num_pj):
             RM1 = matrix_quaternion_rot([0, 0, 1], angles[i, 0])
@@ -103,9 +111,9 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
             # Y_cen = model_rot[1, :]
             # Z_cen = model_rot[2, :]
 
-            X_round = np.round(X_cen).astype(int)
-            Y_round = np.round(Y_cen).astype(int)
-            Z_round = np.round(Z_cen).astype(int)
+            X_round = _matlab_round(X_cen).astype(int)
+            Y_round = _matlab_round(Y_cen).astype(int)
+            Z_round = _matlab_round(Z_cen).astype(int)
 
             Dx = X_crop.reshape(X_crop.shape[0], X_crop.shape[1], 1) + (X_round - X_cen) #todo: stuck! bsxfun plus can handle different size.
             Dy = Y_crop.reshape(Y_crop.shape[0], Y_crop.shape[1], 1) + (Y_round - Y_cen)
@@ -157,7 +165,10 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
                 grad_z_set[:, :, i, k] = zj_j[:, :, k]
 
         for i in range(num_pj):
-            projs[:, :, i] = np.real( my_ifft( my_fft(projs[:, :, i]) * fixed_fa ) ) #todo: check
+            projs[:, :, i] = np.asarray(
+                np.real(my_ifft(my_fft(projs[:, :, i]) * fixed_fa)),
+                dtype=dtype,
+            )
 
         res = projs - ydata
         errR.append(np.sum(np.abs(res.flatten())) / np.sum(np.abs(ydata.flatten())))
@@ -204,6 +215,6 @@ def gradient_fixHB_XYZ(para, xdata, ydata):
 
     # model = np.array([X[0, 0, :], Y[0, 0, :], Z[0, 0, :]]) * Res
     model = (np.vstack([X.flatten(), Y.flatten(), Z.flatten()]).T * Res).T
-    param = np.vstack([h.flatten(), (Res * np.pi) ** 2 / b, model])
+    param = np.vstack([h.flatten(), (Res * np.pi) ** 2 / b, model]).astype(np.float64, copy=False)
 
     return projs, param, errR, model_arr
