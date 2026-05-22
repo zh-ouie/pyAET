@@ -3,7 +3,7 @@ import sys
 import numpy as np
 from scipy.ndimage import grey_dilation
 from scipy.optimize import least_squares
-from scipy.spatial.distance import cdist
+from scipy.spatial import cKDTree
 from pyaet.src.strel3d import strel3d
 from pyaet.src.my_paddzero import my_paddzero
 from pyaet.src.obtain_tight_support import obtain_tight_support
@@ -44,6 +44,7 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
         Dsetvol = read_mat_file(Dsetvol_file_path)
     else:
         Dsetvol = np.load(Dsetvol_file_path)
+    Dsetvol_support = Dsetvol
 
     output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
@@ -259,15 +260,15 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     }
 
     # Implement the functions obtain_tight_support and my_paddzero similarly
-    tight_support1 = obtain_tight_support(Dsetvol, support_para)
+    tight_support1 = obtain_tight_support(Dsetvol_support, support_para)
     support_para['erode_size'] = 18
-    tight_support2 = obtain_tight_support(Dsetvol, support_para)
+    tight_support2 = obtain_tight_support(Dsetvol_support, support_para)
     print(f"  tight_support1_voxels = {int(np.count_nonzero(tight_support1))}")
     print(f"  tight_support2_voxels = {int(np.count_nonzero(tight_support2))}")
 
     # Exclude atoms near the boundary first
     bdl_1 = 8
-    bdl_2 = Dsetvol.shape[0] - 8
+    bdl_2 = Dsetvol_support.shape[0] - 8
     ind_out1 = np.logical_or.reduce((atom_pos_o[0, :] <= bdl_1, atom_pos_o[1, :] <= bdl_1, atom_pos_o[2, :] <= bdl_1))
     ind_out2 = np.logical_or.reduce((atom_pos_o[0, :] >= bdl_2, atom_pos_o[1, :] >= bdl_2, atom_pos_o[2, :] >= bdl_2))
     atom_pos_o = np.delete(atom_pos_o, ind_out1 | ind_out2, axis=1)
@@ -276,21 +277,25 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     temp_pos_arr1 = []
     ind_arr1 = []
     for i in range(atom_pos_o.shape[1]):
-        temp_pos = np.round(atom_pos_o[:, i]).astype(int) - 1
+        temp_pos = _matlab_round_positive(atom_pos_o[:, i]) - 1
         if tight_support1[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
-            temp_pos_arr1.append([atom_pos_o[:, i][0], atom_pos_o[:, i][1], atom_pos_o[:, i][2]])
+            temp_pos_arr1.append(atom_pos_o[:, i])
             ind_arr1.append(i)
 
     # Exclude traced atoms outside the looser support
-    temp_pos_arr1_arr = np.asarray(temp_pos_arr1, dtype=float)
-    if temp_pos_arr1_arr.size == 0:
-        temp_pos_arr1_arr = temp_pos_arr1_arr.reshape(0, 3)
+    temp_pos_arr1_arr = np.asarray(temp_pos_arr1, dtype=float).reshape(-1, 3)
+    if temp_pos_arr1_arr.shape[0]:
+        temp_pos_arr1_tree = cKDTree(temp_pos_arr1_arr)
+        nearest_dist, _ = temp_pos_arr1_tree.query(atom_pos_all.T, k=1)
+    else:
+        nearest_dist = np.full(atom_pos_all.shape[1], np.inf)
+
     ind_arr2 = []
     for i in range(atom_pos_all.shape[1]):
-        if temp_pos_arr1_arr.size and np.min(cdist(atom_pos_all[:, i].reshape(1, 3), temp_pos_arr1_arr, metric='euclidean')[0]) < 1e-4:
+        if nearest_dist[i] < 1e-4:
             ind_arr2.append(i)
         else:
-            temp_pos = np.round(atom_pos_all[:, i]).astype(int) - 1
+            temp_pos = _matlab_round_positive(atom_pos_all[:, i]) - 1
             if tight_support2[temp_pos[0], temp_pos[1], temp_pos[2]] == 1:
                 ind_arr2.append(i)
 
@@ -298,6 +303,11 @@ def main_polynomial_tracing(Dsetvol_file_path, max_num_th, min_dist, output_fn):
     np.save(output_file_path+".npy", temp_pos_arr2)
     print("tracing finished.")
     return
+
+
+def _matlab_round_positive(values):
+    return np.floor(values + 0.5).astype(int)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 5:

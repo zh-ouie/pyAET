@@ -5,6 +5,10 @@ from scipy.ndimage import grey_dilation, uniform_filter, grey_erosion
 from pyaet.src.otsu_thresh_3D import otsu_thresh_3D
 
 
+def _matlab_morph_origin(size):
+    return -1 if size % 2 == 0 else 0
+
+
 def obtain_tight_support(RECvol, para_info):
     """
     Obtain tight support.
@@ -35,12 +39,12 @@ def obtain_tight_support(RECvol, para_info):
 
     # Make the mask slightly larger
     se = strel3d(3)
-    curr_support = grey_dilation(curr_support, footprint=se)
+    curr_support = grey_dilation(curr_support, footprint=se, origin=_matlab_morph_origin(3))
     dilated_small = curr_support.copy()
 
     # Make the mask quite larger
     se = strel3d(dilate_size)
-    curr_support = grey_dilation(curr_support, footprint=se)
+    curr_support = grey_dilation(curr_support, footprint=se, origin=_matlab_morph_origin(dilate_size))
     dilated_large = curr_support.copy()
 
     if 'bw_size' in para_info:
@@ -51,6 +55,6 @@ def obtain_tight_support(RECvol, para_info):
 
     # Make the mask quite smaller
     se = strel3d(erode_size)
-    curr_support = grey_erosion(curr_support, footprint=se)
+    curr_support = grey_erosion(curr_support, footprint=se, origin=_matlab_morph_origin(erode_size))
 
     return curr_support

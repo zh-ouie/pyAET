@@ -17,10 +17,11 @@ def strel3d(sesize):
     se = strel3d(5)
     """
 
-    sw = (sesize - 1) // 2
-    ses2 = (sesize + 1) // 2  # Use integer division to handle odd diameters
-    x, y, z = np.meshgrid(np.arange(-sw, sw + 1), np.arange(-sw, sw + 1), np.arange(-sw, sw + 1))
+    sw = (sesize - 1) / 2
+    ses2 = int(np.ceil(sesize / 2))
+    grid = np.arange(-sw, sw + 1)
+    y, x, z = np.meshgrid(grid, grid, grid)
     m = np.sqrt(x**2 + y**2 + z**2)
-    b = (m <= m[ses2-1, ses2-1, sesize-1])
+    b = (m <= m[ses2 - 1, ses2 - 1, sesize - 1])
     se = np.where(b, 1, 0)
     return se
