@@ -1,29 +1,38 @@
 import setuptools
 
-with open("README.rst", "r") as fh:
+with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    install_requires = [
+        line.strip()
+        for line in fh
+        if line.strip() and not line.strip().startswith("#")
+    ]
 
 
 setuptools.setup(
-    name="pyaet", # Replace with your own name
+    name="pyaet",
     version="0.0.1",
     author="Long Yang",
     author_email="long_yang@tongji.edu.cn",
-    description="AET reconstruction",
+    description="Atomic electron tomography reconstruction and atom tracing workflow",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yanglonggroup/pyAET",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_namespace_packages(
+        include=["pyaet*"],
+        exclude=["pyaet.old", "pyaet.old.*"],
+    ),
     package_dir={"pyaet": "pyaet"},
+    package_data={"pyaet.src": ["*.mat", "*.m"]},
+    install_requires=install_requires,
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
     ],
-    entry_points={'console_scripts': [
-            'pyaet = pyaet.main:main',],
-        },
-    data_files = [("", ["LICENSE.txt"])],
-    python_requires='>=3.7',
+    data_files=[("", ["LICENSE"])],
+    python_requires='>=3.10',
     zip_safe=False,
 )

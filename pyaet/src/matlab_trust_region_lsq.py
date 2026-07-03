@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -314,21 +316,66 @@ def _trdog(
     return ns + r, nss + mmdis * sssave, qpval3, posdef
 
 
-def _finite_difference_jacobian(fun, x: np.ndarray, f0: np.ndarray, lb: np.ndarray, ub: np.ndarray):
+def _finite_difference_points(x: np.ndarray, lb: np.ndarray, ub: np.ndarray):
     n = x.size
-    cols = []
-    nfev = 0
-    rel_step = np.sqrt(np.finfo(float).eps)
+    rel_step = _finite_difference_rel_step()
+    points = []
+    steps = []
     for i in range(n):
         h = rel_step * max(abs(x[i]), 1.0)
         if x[i] + h > ub[i]:
             h = -h
         xp = x.copy()
         xp[i] += h
-        fp = fun(xp)
+        points.append(xp)
+        steps.append(h)
+    return points, steps
+
+
+def _finite_difference_rel_step() -> float:
+    value = os.environ.get("PYAET_POSREF_LSQ_REL_STEP")
+    if value is None:
+        value = os.environ.get("PYAET_POSREF_LSQ_DIFF_STEP")
+    if value is None or value.strip() == "":
+        return float(np.sqrt(np.finfo(float).eps))
+    return float(value)
+
+
+def _finite_difference_jacobian(fun, x: np.ndarray, f0: np.ndarray, lb: np.ndarray, ub: np.ndarray, executor=None):
+    points, steps = _finite_difference_points(x, lb, ub)
+    cols = []
+    nfev = 0
+    if executor is None:
+        values = [fun(point) for point in points]
+    else:
+        values = list(executor.map(fun, points))
+    for fp, h in zip(values, steps):
         cols.append((fp - f0) / h)
         nfev += 1
     return np.column_stack(cols), nfev
+
+
+def _function_and_finite_difference_jacobian(fun, x: np.ndarray, lb: np.ndarray, ub: np.ndarray, executor=None):
+    points, steps = _finite_difference_points(x, lb, ub)
+    if executor is None:
+        f0 = fun(x)
+        values = [fun(point) for point in points]
+    else:
+        values_all = list(executor.map(fun, [x.copy(), *points]))
+        f0 = values_all[0]
+        values = values_all[1:]
+
+    cols = [(fp - f0) / h for fp, h in zip(values, steps)]
+    return f0, np.column_stack(cols), 1 + len(points)
+
+
+def _parallel_fd_workers() -> int:
+    value = os.environ.get("PYAET_POSREF_LSQ_FD_WORKERS", "1")
+    try:
+        workers = int(value)
+    except ValueError:
+        workers = 1
+    return max(1, workers)
 
 
 def least_squares_matlab_trust_region(
@@ -339,6 +386,7 @@ def least_squares_matlab_trust_region(
     *,
     tol_fun: float = 1e-12,
     max_fun_evals: int | None = None,
+    soft_max_fun_evals: int | None = None,
     max_iter: int = 400,
 ):
     x = np.asarray(x0, dtype=np.float64).copy()
@@ -347,14 +395,125 @@ def least_squares_matlab_trust_region(
     if max_fun_evals is None:
         max_fun_evals = 100 * x.size
 
-    f = fun(x)
-    nfev = 1
-    jac, fd_evals = _finite_difference_jacobian(fun, x, f, lb, ub)
-    nfev += fd_evals
-    njev = 1
+    fd_workers = _parallel_fd_workers()
+    executor = ThreadPoolExecutor(max_workers=fd_workers) if fd_workers > 1 else None
+    parallel_base = os.environ.get("PYAET_POSREF_LSQ_PARALLEL_BASE", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
-    g = jac.T @ f
-    val = float(f @ f)
+    try:
+        f = fun(x)
+        nfev = 1
+        jac, fd_evals = _finite_difference_jacobian(fun, x, f, lb, ub, executor=executor)
+        nfev += fd_evals
+        njev = 1
+
+        g = jac.T @ f
+        val = float(f @ f)
+        delta = 10.0
+        ratio = 0.0
+        nrmsx = 1.0
+        posdef = 1
+        oval = np.inf
+        history: list[dict] = []
+
+        for iteration in range(max_iter + 1):
+            v, dv = _definev(g, x, lb, ub)
+            gopt = v * g
+            optnrm = float(np.linalg.norm(gopt, ord=np.inf))
+            history.append(
+                {
+                    "iteration": iteration,
+                    "x": x.copy(),
+                    "cost_half_sumsq": 0.5 * val,
+                    "resnorm": val,
+                    "optnrm": optnrm,
+                    "delta": delta,
+                    "ratio": ratio,
+                    "nfev": nfev,
+                }
+            )
+
+            diff = abs(oval - val)
+            oval = val
+            if optnrm < tol_fun and posdef == 1:
+                return MatlabTRFResult(x, 0.5 * val, nfev, njev, 1, "first-order optimality below TolFun", history)
+            if iteration > 1 and nrmsx < np.finfo(float).eps:
+                return MatlabTRFResult(x, 0.5 * val, nfev, njev, 2, "step size below TolX", history)
+            if iteration > max_iter:
+                break
+            if soft_max_fun_evals is not None and nfev > soft_max_fun_evals:
+                return MatlabTRFResult(x, 0.5 * val, nfev, njev, 3, "effective function evaluation budget reached", history)
+            if nfev > max_fun_evals:
+                return MatlabTRFResult(x, 0.5 * val, nfev, njev, 0, "maximum function evaluations exceeded", history)
+
+            d = np.sqrt(np.abs(v))
+            theta = max(0.95, 1.0 - optnrm)
+            ata = jac.T @ jac
+            sx, snod, qp, posdef = _trdog(x, g, ata, d, delta, dv, theta, lb, ub)
+            nrmsx = float(np.linalg.norm(snod))
+            newx = np.minimum(np.maximum(x + sx, lb), ub)
+            newx = _perturb_trust_region_reflective(newx, lb, ub)
+
+            if executor is not None and parallel_base:
+                newf, newjac, evals = _function_and_finite_difference_jacobian(fun, newx, lb, ub, executor=executor)
+                nfev += evals
+            else:
+                newf = fun(newx)
+                nfev += 1
+                newjac, fd_evals = _finite_difference_jacobian(fun, newx, newf, lb, ub, executor=executor)
+                nfev += fd_evals
+            njev += 1
+            newval = float(newf @ newf)
+            newgrad = newjac.T @ newf
+
+            aug = 0.5 * float(snod @ ((dv * np.abs(g)) * snod))
+            ratio = (0.5 * (newval - val) + aug) / qp if qp != 0 else 0.0
+            if ratio >= 0.75 and nrmsx >= 0.9 * delta:
+                delta = 2.0 * delta
+            elif ratio <= 0.25:
+                delta = min(nrmsx / 4.0, delta / 4.0)
+
+            if newval < val:
+                x = newx
+                f = newf
+                jac = newjac
+                g = newgrad
+                val = newval
+
+        return MatlabTRFResult(x, 0.5 * val, nfev, njev, 0, "maximum iterations exceeded", history)
+    finally:
+        if executor is not None:
+            executor.shutdown()
+
+
+def least_squares_matlab_trust_region_stats(
+    eval_stats,
+    x0: np.ndarray,
+    lb: np.ndarray,
+    ub: np.ndarray,
+    *,
+    tol_fun: float = 1e-12,
+    max_fun_evals: int | None = None,
+    soft_max_fun_evals: int | None = None,
+    max_iter: int = 400,
+):
+    x = np.asarray(x0, dtype=np.float64).copy()
+    lb = np.asarray(lb, dtype=np.float64)
+    ub = np.asarray(ub, dtype=np.float64)
+    if max_fun_evals is None:
+        max_fun_evals = 100 * x.size
+
+    val, g, ata, evals = eval_stats(x, lb, ub)
+    nfev = int(evals)
+    njev = 1
+    val = float(val)
+    g = np.asarray(g, dtype=np.float64)
+    ata = np.asarray(ata, dtype=np.float64)
+
     delta = 10.0
     ratio = 0.0
     nrmsx = 1.0
@@ -387,24 +546,24 @@ def least_squares_matlab_trust_region(
             return MatlabTRFResult(x, 0.5 * val, nfev, njev, 2, "step size below TolX", history)
         if iteration > max_iter:
             break
+        if soft_max_fun_evals is not None and nfev > soft_max_fun_evals:
+            return MatlabTRFResult(x, 0.5 * val, nfev, njev, 3, "effective function evaluation budget reached", history)
         if nfev > max_fun_evals:
             return MatlabTRFResult(x, 0.5 * val, nfev, njev, 0, "maximum function evaluations exceeded", history)
 
         d = np.sqrt(np.abs(v))
         theta = max(0.95, 1.0 - optnrm)
-        ata = jac.T @ jac
         sx, snod, qp, posdef = _trdog(x, g, ata, d, delta, dv, theta, lb, ub)
         nrmsx = float(np.linalg.norm(snod))
         newx = np.minimum(np.maximum(x + sx, lb), ub)
         newx = _perturb_trust_region_reflective(newx, lb, ub)
 
-        newf = fun(newx)
-        nfev += 1
-        newjac, fd_evals = _finite_difference_jacobian(fun, newx, newf, lb, ub)
-        nfev += fd_evals
+        newval, newg, newata, evals = eval_stats(newx, lb, ub)
+        nfev += int(evals)
         njev += 1
-        newval = float(newf @ newf)
-        newgrad = newjac.T @ newf
+        newval = float(newval)
+        newg = np.asarray(newg, dtype=np.float64)
+        newata = np.asarray(newata, dtype=np.float64)
 
         aug = 0.5 * float(snod @ ((dv * np.abs(g)) * snod))
         ratio = (0.5 * (newval - val) + aug) / qp if qp != 0 else 0.0
@@ -415,9 +574,8 @@ def least_squares_matlab_trust_region(
 
         if newval < val:
             x = newx
-            f = newf
-            jac = newjac
-            g = newgrad
+            g = newg
+            ata = newata
             val = newval
 
     return MatlabTRFResult(x, 0.5 * val, nfev, njev, 0, "maximum iterations exceeded", history)

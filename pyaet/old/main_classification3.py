@@ -1,15 +1,7 @@
 import os
 import sys
-import argparse
-from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
-
-if __package__ is None or __package__ == "":
-    repo_root = Path(__file__).resolve().parents[1]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-
 from pyaet.src.interp3_spline import interp3_spline
 from pyaet.src.my_paddzero import my_paddzero
 from pyaet.src.initial_class_kmean_sub import initial_class_kmean_sub
@@ -17,21 +9,6 @@ from pyaet.src.plot_class_hist import plot_class_hist
 from pyaet.src.local_class_kmean_sub import local_class_kmean_sub
 from pyaet.src.my_round import my_round_num
 from pyaet.src.io_helper import read_mat_file
-
-
-RELEASE_ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_ROOT = RELEASE_ROOT / "outputs"
-
-# ========================= User settings =========================
-# Edit this block for a normal run, then execute:
-#     python pyaet/main_classification3.py
-VOLUME_FILE_PATH = OUTPUT_ROOT / "step1" / "MG_reconstruction_volume.npy"
-TRACED_MODEL_FILE_PATH = OUTPUT_ROOT / "step2" / "traced_model_inPixel.npy"
-OUTPUT_STEM = OUTPUT_ROOT / "step3" / "Local_classification_type"
-
-NUM_SPECIES = 3
-LOCAL_RADIUS_ANGSTROM = 10.0
-# ================================================================
 
 
 def main_classification(Dsetvol_file_path, new_model_file_path, num_species, local_radius, output_fn):
@@ -69,10 +46,7 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
     else:
         Dsetvol = np.load(Dsetvol_file_path)
 
-    output_path = Path(output_fn)
-    if not output_path.is_absolute() and output_path.parent == Path("."):
-        output_path = Path(Dsetvol_file_path).parent / output_path
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_file_path = os.path.join(os.path.dirname(Dsetvol_file_path), output_fn)
 
     # Upsample the reconstruction matrix by 3*3*3.
     if FinalVol_double is None:
@@ -133,46 +107,22 @@ def main_classification(Dsetvol_file_path, new_model_file_path, num_species, loc
         FinalVol_double, atom_model, local_class_atomtype, classify_info)
 
     # Save 'local_atomtype' to a file or process it further
-    np.save(str(output_path)+".npy", local_class_atomtype)
+    np.save(output_file_path+".npy", local_class_atomtype)
     print("classification finished.")
     return
 
 
-def _build_parser():
-    parser = argparse.ArgumentParser(
-        description="Step3 classification. This step is CPU-side and uses the same code in CPU/GPU workflows."
-    )
-    parser.add_argument("volume_pos", nargs="?", help="Legacy positional reconstruction volume path.")
-    parser.add_argument("model_pos", nargs="?", help="Legacy positional traced model path.")
-    parser.add_argument("num_species_pos", nargs="?", type=int, help="Legacy positional species count.")
-    parser.add_argument("local_radius_pos", nargs="?", type=float, help="Legacy positional local radius in Angstrom.")
-    parser.add_argument("output_pos", nargs="?", help="Legacy positional output file stem.")
-    parser.add_argument(
-        "--volume",
-        default=str(VOLUME_FILE_PATH),
-        help="Path to Step1 reconstruction .mat/.npy.",
-    )
-    parser.add_argument(
-        "--model",
-        default=str(TRACED_MODEL_FILE_PATH),
-        help="Path to Step2 traced model .mat/.npy.",
-    )
-    parser.add_argument("--num-species", type=int, default=NUM_SPECIES)
-    parser.add_argument("--local-radius", type=float, default=LOCAL_RADIUS_ANGSTROM)
-    parser.add_argument(
-        "--output-stem",
-        default=str(OUTPUT_STEM),
-        help="Output file stem without .npy.",
-    )
-    return parser
-
-
 if __name__ == "__main__":
-    args = _build_parser().parse_args()
+    if len(sys.argv) != 6:
+        raise SystemExit(
+            "Usage: python -m pyaet.main_classification3 "
+            "<reconstruction.mat|npy> <traced_model.mat|npy> <num_species> "
+            "<local_radius_angstrom> <output_name>"
+        )
     main_classification(
-        args.volume_pos or args.volume,
-        args.model_pos or args.model,
-        args.num_species_pos if args.num_species_pos is not None else args.num_species,
-        args.local_radius_pos if args.local_radius_pos is not None else args.local_radius,
-        args.output_pos or args.output_stem,
+        sys.argv[1],
+        sys.argv[2],
+        int(sys.argv[3]),
+        float(sys.argv[4]),
+        sys.argv[5],
     )

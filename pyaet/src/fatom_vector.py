@@ -19,14 +19,7 @@ def fatom_vector(q, Z):
     c = np.array([fpara[6], fpara[8], fpara[10]])
     d = np.array([fpara[7], fpara[9], fpara[11]])
 
-    num = q.size
-    v = np.zeros(num, dtype=float)
-
-    for hh in range(num):
-        # Lorenzians
-        suml = np.sum(a / ((q.flatten(order='F')[hh]**2) + b))
-        # Gaussians
-        sumg = np.sum(c * np.exp(-(q.flatten(order='F')[hh]**2) * d))
-        v[hh] = suml + sumg
-
-    return v
+    q2 = np.ravel(q, order='F') ** 2
+    suml = np.sum(a[:, None] / (q2[None, :] + b[:, None]), axis=0)
+    sumg = np.sum(c[:, None] * np.exp(-q2[None, :] * d[:, None]), axis=0)
+    return suml + sumg

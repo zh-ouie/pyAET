@@ -1,8 +1,10 @@
 numpy
 scipy
+scikit-learn
+scikit-image
 matplotlib
 psutil
 pybind11
-scikit-learn
 numba
 h5py
+torch

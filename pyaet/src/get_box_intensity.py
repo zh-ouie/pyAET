@@ -48,15 +48,11 @@ def get_box_intensity(rec, curr_model, half_size, O_Ratio, SPHyn, interp_type='l
     # YY_use = YY.ravel()[useInd]
     # ZZ_use = ZZ.ravel()[useInd]
 
-    y_set = np.zeros((len(YY_use), Num_atom))
-    x_set = np.zeros((len(YY_use), Num_atom))
-    z_set = np.zeros((len(YY_use), Num_atom))
-
-    # interpolations for points
-    for k in range(Num_atom):
-        y_set[:, k] = YY_use + curr_model[1, k]
-        x_set[:, k] = XX_use + curr_model[0, k]
-        z_set[:, k] = ZZ_use + curr_model[2, k]
+    # Build the same per-atom query grids as the original loop, but let NumPy
+    # fill the dense matrices in one vectorized broadcast.
+    x_set = np.ascontiguousarray(XX_use[:, None] + curr_model[0, :])
+    y_set = np.ascontiguousarray(YY_use[:, None] + curr_model[1, :])
+    z_set = np.ascontiguousarray(ZZ_use[:, None] + curr_model[2, :])
 
     if interp_type == 'linear':
         points = mex_function3(rec, x_set, y_set, z_set)

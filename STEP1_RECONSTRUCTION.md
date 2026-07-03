@@ -1,44 +1,18 @@
 # Step1 Reconstruction
 
-This repository currently keeps two parallel Step1 reconstruction lines:
+Step1 reconstructs a 3D volume from measured projections and tilt angles. The
+active Step1 implementation is:
 
-- `pyaet/resire_numpy/`: stable NumPy/CPP reconstruction line
-- `pyaet/resire_torch/`: torch line scaffold for future GPU implementation
-
-For now, the supported Step1 path is the NumPy/CPP line.
-
-## Status of the old `pyaet/resire/`
-
-The older `pyaet/resire/` implementation has been removed from this repository.
-
-Use these two explicit Step1 lines instead:
-
-- `pyaet/resire_numpy/`
-- `pyaet/resire_torch/`
-
-## Environment
-
-Recommended:
-
-```bash
-conda create -n pyaet python=3.10 -y
-conda activate pyaet
-pip install numpy scipy psutil pybind11
+```text
+pyaet/main_reconstruction1_torch.py
 ```
 
-Optional FFT acceleration:
+It uses the Torch reconstruction path on both CPU and CUDA. CUDA is selected
+automatically when available, and CPU is used otherwise.
 
-```bash
-pip install pyfftw
-```
+## Build Requirement
 
-## Build the C++ interpolation extension
-
-The NumPy reconstruction line expects `pyaet.splinterp_cpp` to be importable.
-The compiled extension is required for the release path; the old Python
-interpolation fallback is not used.
-
-From the repository root:
+Build the C++ interpolation extension before running Step1:
 
 ```bash
 cd pyaet/splinterp_cpp
@@ -46,112 +20,35 @@ python setup.py build_ext --inplace
 cd ../..
 ```
 
-After that, this import should succeed:
+## Run
 
 ```bash
-python -c "from pyaet.splinterp_cpp import mex_function2, mex_function3; print('splinterp_cpp ok')"
+python -m pyaet.main_reconstruction1_torch \
+  --device auto \
+  --projections data/1_Measured_data/Projections.mat \
+  --angles data/1_Measured_data/Angles.mat \
+  --output-stem outputs/step1/MG_reconstruction_volume
 ```
 
-If the extension is not available, build it before running reconstruction.
+Use `--device cpu` to force CPU execution or `--device cuda` to require CUDA.
 
-## Run the NumPy version directly
+## Main Parameters
 
-Edit the parameter block in:
+- `--iterations`: RESIRE reconstruction iterations.
+- `--oversampling-ratio`: gridding oversampling ratio.
+- `--backproj-backend`: backprojection backend, default `grid_sample`.
+- `--save-pickle`: also write the legacy pickle-style output.
 
-- `pyaet/main_reconstruction1_numpy.py`
+## Outputs
 
-The script defaults are set to the formal MATLAB MG reconstruction parameters:
+Step1 writes the reconstructed volume and timing summaries under the selected
+output stem:
 
-- `oversampling_ratio = 4`
-- `num_iterations = 200`
-- `monitorR_loopLength = 20`
-- `vector3 = [1, 0, 0]`
-- `use_parallel = True`
-- `dtype = float32`
-
-Then run from the repository root:
-
-```bash
-python pyaet/main_reconstruction1_numpy.py
+```text
+<output-stem>.npy
+<output-stem>_summary.csv
+<output-stem>_iter_timing.csv
+<output-stem>_iter_descent_update_only.csv
 ```
 
-Outputs will be written next to the projection file path using `OUTPUT_FN`.
-
-The script now calls a reusable wrapper:
-
-```python
-main_reconstruction(
-    PROJECTIONS_FILE_PATH,
-    ANGLES_FILE_PATH,
-    RESIRE_PARAM,
-    OUTPUT_FN,
-)
-```
-
-Internally this wrapper still uses the same `RESIRE_Reconstructor` workflow:
-
-```python
-resire.read_files()
-resire.check_prepare_data()
-resire.run_gridding()
-reconstruct(resire)
-```
-
-These methods remain available in `pyaet/resire_numpy/RESIRE_Reconstructor.py`.
-
-## Run on your own MG projections
-
-This repository packages only the sample Step1 input files:
-
-- `pyaet/input/sample_projections_amorphous.mat`
-- `pyaet/input/sample_angles_amorphous.mat`
-
-The file `pyaet/input/MG_reconstruction_volume.mat` is already a reconstruction volume and is
-used by later steps. It is not the raw Step1 projection input.
-
-For MG Step1, replace the file paths and parameters in:
-
-- `pyaet/main_reconstruction1_numpy.py`
-
-and run:
-
-```bash
-python pyaet/main_reconstruction1_numpy.py
-```
-
-## Threading note
-
-The compiled interpolation extension uses the `SPLINTERP_NUM_THREADS` environment variable.
-
-Example:
-
-```bash
-export SPLINTERP_NUM_THREADS=16
-```
-
-If unset, the extension will use its compiled default thread count.
-
-## Torch line
-
-Edit the parameter block in:
-
-- `pyaet/main_reconstruction1_torch.py`
-
-The torch entry uses the same formal MATLAB MG parameter defaults as the numpy entry.
-
-and run:
-
-```bash
-python pyaet/main_reconstruction1_torch.py
-```
-
-This line uses the same gridding/preparation path as the NumPy/CPP version, but performs the
-gradient accumulation and descent update with torch when available.
-
-Set this field in `RESIRE_PARAM` to choose the torch device:
-
-```python
-"gpu_grad_device": "cuda"
-```
-
-If CUDA is unavailable, the script will fall back to CPU.
+The `.npy` volume is the input for Step2 tracing.

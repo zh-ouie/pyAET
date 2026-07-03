@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pyaet.main_reconstruction1_numpy import main_reconstruction
+from pyaet.main_reconstruction1_torch import main_reconstruction
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +19,7 @@ RESIRE_PARAM = {
     "use_parallel": True,
     "save_temp": False,
     "dtype": "float32",
+    "gpu_grad_device": "auto",
 }
 
 

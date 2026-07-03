@@ -15,12 +15,12 @@ import numpy as np
 import psutil
 
 if __package__ is None or __package__ == "":
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
-from pyaet.resire_numpy import RESIRE_Reconstructor
-from pyaet.resire_numpy.reconstruct import reconstruct
+from pyaet.old.resire_numpy import RESIRE_Reconstructor
+from pyaet.old.resire_numpy.reconstruct import reconstruct
 
 
 def main_reconstruction(projections_file_path, angles_file_path, resire_param, output_fn):

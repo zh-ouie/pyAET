@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.optimize import optimize
 from pyaet.src.create_box import create_box
 from pyaet.src.fit_gauss3D_PD import fit_gauss3D_PD
 
@@ -73,5 +72,3 @@ def initial_class_L1norm(box_arr, mean_box, O_Ratio, half_size, SPHyn):
     print(f'number of skipped atoms: {np.sum(atomtype == 0)} atoms')
 
     return atomtype, Rs
-
-# Note: You will need to implement `fit_gauss3D_PD` based on your fitting method.

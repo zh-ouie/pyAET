@@ -27,11 +27,11 @@ namespace splinterp{
     inline size_t resolve_thread_count(const size_t& N){
         // Python controls the interpolation worker count through SPLINTERP_NUM_THREADS.
         // Keep a stable default for local runs, and cap workstation requests at 96.
-        const size_t fallback_threads = static_cast<size_t>(DEFAULT_NUM_THREADS);
+        const size_t default_threads = static_cast<size_t>(DEFAULT_NUM_THREADS);
         const size_t max_threads = static_cast<size_t>(MAX_NUM_THREADS);
 
         const char* env_value = std::getenv("SPLINTERP_NUM_THREADS");
-        long requested_threads = static_cast<long>(fallback_threads);
+        long requested_threads = static_cast<long>(default_threads);
         if (env_value != nullptr && env_value[0] != '\0'){
             char* end_ptr = nullptr;
             const long parsed = std::strtol(env_value, &end_ptr, 10);
@@ -42,7 +42,7 @@ namespace splinterp{
 
         size_t thread_count = static_cast<size_t>(requested_threads);
         if (thread_count == 0){
-            thread_count = fallback_threads;
+            thread_count = default_threads;
         }
         thread_count = std::min(thread_count, max_threads);
         thread_count = std::min(thread_count, std::max<size_t>(1, N));

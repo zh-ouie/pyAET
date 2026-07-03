@@ -1,220 +1,229 @@
 import numpy as np
-from pyaet.src.my_ifft import my_ifft
-from pyaet.src.my_fft import my_fft
-from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
+import torch
+
 from pyaet.src.make_fixed_fa_man import make_fixed_fa_man
+from pyaet.src.matrix_quaternion_rot import matrix_quaternion_rot
 
 
-def _matlab_round(x):
-    x = np.asarray(x)
-    return np.sign(x) * np.floor(np.abs(x) + 0.5)
+def _matlab_round_torch(x):
+    return torch.where(x >= 0, torch.floor(x + 0.5), torch.ceil(x - 0.5)).to(torch.int64)
 
 
-def gradient_fixHB_XYZ(para, xdata, ydata):
-    print('\nHB gradient algorithm')
+def _torch_dtype_from_xdata(xdata):
+    dtype_name = str(xdata.get("xyz_torch_dtype", "float32")).lower()
+    if dtype_name in {"float64", "double"}:
+        return torch.float64
+    if dtype_name in {"float32", "single"}:
+        return torch.float32
+    raise ValueError(f"Unsupported xyz_torch_dtype: {dtype_name!r}")
+
+
+def _torch_device_from_xdata(xdata):
+    device = xdata.get("xyz_device", None)
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    return torch.device(device)
+
+
+def _apply_fixed_fa_torch(projs, fixed_fa):
+    proj_batch = projs.permute(2, 0, 1).contiguous()
+    kspace = torch.fft.fftshift(
+        torch.fft.fftn(torch.fft.ifftshift(proj_batch, dim=(-2, -1)), dim=(-2, -1)),
+        dim=(-2, -1),
+    )
+    kspace = kspace * fixed_fa[None, :, :]
+    out = torch.fft.fftshift(
+        torch.fft.ifftn(torch.fft.ifftshift(kspace, dim=(-2, -1)), dim=(-2, -1)),
+        dim=(-2, -1),
+    ).real
+    return out.permute(1, 2, 0).contiguous()
+
+
+def _rotation_matrices_torch(angles, dtype, device):
+    rotations = []
+    for i in range(angles.shape[0]):
+        rm1 = matrix_quaternion_rot([0, 0, 1], angles[i, 0])
+        rm2 = matrix_quaternion_rot([0, 1, 0], angles[i, 1])
+        rm3 = matrix_quaternion_rot([1, 0, 0], angles[i, 2])
+        rotations.append(np.dot(np.dot(rm1, rm2), rm3))
+    return torch.as_tensor(np.stack(rotations, axis=0), dtype=dtype, device=device)
+
+
+def gradient_fixHB_XYZ_torch(para, xdata, ydata):
+    print("\nHB gradient algorithm [torch XYZ backend]")
     errR = []
     model_arr = []
 
-    Z_arr = xdata['Z_arr']
-    Res = xdata['Res']
-    half_width = xdata['half_width']
-    iterations = xdata['iterations']
-    step_sz = xdata['step_sz']
-    model = xdata['model']
-    model_ori = xdata['model_ori']
-    angles = xdata['angles']
-    state_dtype = np.float32
-    atom = np.asarray(xdata['atoms']).ravel(order='F')
+    z_arr = xdata["Z_arr"]
+    res = xdata["Res"]
+    half_width = int(xdata["half_width"])
+    iterations = int(xdata["iterations"])
+    step_sz = xdata["step_sz"]
+    angles = np.asarray(xdata["angles"], dtype=np.float64)
+    atom_np = np.asarray(xdata["atoms"]).ravel(order="F").astype(np.int64)
+    para_arr = np.asarray(para)
+    if para_arr.ndim == 2 and para_arr.shape[0] == 2:
+        atom_type_num = para_arr.shape[1]
+    else:
+        atom_type_num = max(len(np.unique(atom_np)), int(para_arr.size // 2))
 
-    num_atom = atom.size
-    atom_type_num = len(np.unique(atom))
+    num_atom = atom_np.size
+    n1, n2, num_pj = ydata.shape
+    patch_n = 2 * half_width + 1
 
-    N1, N2, num_pj = ydata.shape
+    device = _torch_device_from_xdata(xdata)
+    dtype = _torch_dtype_from_xdata(xdata)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("Torch CUDA XYZ backend requested, but CUDA is not available.")
 
-    fixed_fa = np.asarray(make_fixed_fa_man([N1, N2], Res, Z_arr).reshape(N1, N2), dtype=state_dtype)
-    model = np.asarray(model / Res, dtype=state_dtype)
-    model_ori = np.asarray(model_ori / Res, dtype=state_dtype)
+    fixed_fa_np = np.asarray(make_fixed_fa_man([n1, n2], res, z_arr).reshape(n1, n2), dtype=np.float32)
+    fixed_fa = torch.as_tensor(fixed_fa_np, dtype=dtype, device=device)
+    y_t = torch.as_tensor(ydata, dtype=dtype, device=device)
 
-    dtype = state_dtype
-    # MATLAB uses ndgrid for [X_crop, Y_crop]
-    grid = np.arange(-half_width, half_width + 1, dtype=state_dtype)
-    X_crop, Y_crop = np.meshgrid(grid, grid, indexing='ij')
-    Z_crop = np.arange(-half_width, half_width + 1, dtype=state_dtype)
+    model = torch.as_tensor(np.asarray(xdata["model"] / res, dtype=np.float32), dtype=dtype, device=device)
+    model_ori = torch.as_tensor(np.asarray(xdata["model_ori"] / res, dtype=np.float32), dtype=dtype, device=device)
+    x = model[0, :].clone()
+    y = model[1, :].clone()
+    z = model[2, :].clone()
+    x_ori = model_ori[0, :]
+    y_ori = model_ori[1, :]
+    z_ori = model_ori[2, :]
 
     para = np.reshape(para, [2, atom_type_num])
-    h = np.zeros(num_atom, dtype=dtype)
-    b = np.zeros(num_atom, dtype=dtype)
-    # h = np.zeros((1, 1, num_atom), dtype=dtype)
-    # b = np.zeros((1, 1, num_atom), dtype=dtype)
-
+    h_np = np.zeros(num_atom, dtype=np.float32)
+    b_np = np.zeros(num_atom, dtype=np.float32)
     if para.shape[1] == atom_type_num:
         for k in range(atom_type_num):
-            h[atom == k+1] = para[0, k] #todo: check. why error?
-            b[atom == k+1] = para[1, k]
+            h_np[atom_np == k + 1] = para[0, k]
+            b_np[atom_np == k + 1] = para[1, k]
     elif para.shape[1] == num_atom:
-        h[:] = para[0, :]
-        b[:] = para[1, :]
+        h_np[:] = para[0, :]
+        b_np[:] = para[1, :]
     else:
-        print('error')
-        return
+        raise ValueError("para must contain either per-type or per-atom H/B values")
 
-    b = (Res * np.pi) ** 2 / b
+    b_np = (res * np.pi) ** 2 / b_np
+    h = torch.as_tensor(h_np, dtype=dtype, device=device)
+    b = torch.as_tensor(b_np, dtype=dtype, device=device)
 
-    N_s = 2 * half_width + 1
-    index = np.zeros((2, num_pj, num_atom), dtype=np.int32)
+    offsets = torch.arange(-half_width, half_width + 1, dtype=dtype, device=device)
+    dx_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing="ij")
+    dx_flat = dx_grid.reshape(-1)
+    dy_flat = dy_grid.reshape(-1)
+    center_x = (n1 + 1) // 2 - 1
+    center_y = (n2 + 1) // 2 - 1
+    rotations = _rotation_matrices_torch(angles, dtype, device)
+    scale = 1 / res
 
-    grad_h_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
-    grad_b_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
-    grad_x_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
-    grad_y_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
-    grad_z_set = np.zeros((N_s, N_s, num_pj, num_atom), dtype=dtype)
+    for iter_idx in range(iterations):
+        projs_flat = torch.zeros((num_pj, n1 * n2), dtype=dtype, device=device)
+        x_round_all = torch.empty((num_pj, num_atom), dtype=torch.int64, device=device)
+        y_round_all = torch.empty((num_pj, num_atom), dtype=torch.int64, device=device)
+        grad_x_set = torch.empty((num_pj, num_atom, patch_n * patch_n), dtype=dtype, device=device)
+        grad_y_set = torch.empty_like(grad_x_set)
+        grad_z_set = torch.empty_like(grad_x_set)
 
-    h = h.astype(dtype)
-    b = b.astype(dtype)
-    X_crop = X_crop.astype(dtype)
-    Y_crop = Y_crop.astype(dtype)
-    Z_crop = Z_crop.astype(dtype)
+        coords = torch.stack((x, y, z), dim=0)
+        for i in range(num_pj):
+            rotation = rotations[i]
+            model_rot = rotation.T @ coords
+            x_cen = model_rot[0, :]
+            y_cen = model_rot[1, :]
+            z_cen = model_rot[2, :]
 
-    X_ori = model_ori[0, :].reshape((1, 1, num_atom))
-    Y_ori = model_ori[1, :].reshape((1, 1, num_atom))
-    Z_ori = model_ori[2, :].reshape((1, 1, num_atom))
+            x_round = _matlab_round_torch(x_cen)
+            y_round = _matlab_round_torch(y_cen)
+            z_round = _matlab_round_torch(z_cen)
+            x_round_all[i, :] = x_round
+            y_round_all[i, :] = y_round
 
-    # X_ori = model_ori[0, :]
-    # Y_ori = model_ori[1, :]
-    # Z_ori = model_ori[2, :]
+            x_round_f = x_round.to(dtype)
+            y_round_f = y_round.to(dtype)
+            z_round_f = z_round.to(dtype)
 
-    X = model[0, :].reshape((1, 1, num_atom))
-    Y = model[1, :].reshape((1, 1, num_atom))
-    Z = model[2, :].reshape((1, 1, num_atom))
+            dx = dx_flat[:, None] + (x_round_f - x_cen)[None, :]
+            dy = dy_flat[:, None] + (y_round_f - y_cen)[None, :]
+            dz = offsets[:, None] + (z_round_f - z_cen)[None, :]
 
-    # X = model[0, :]
-    # Y = model[1, :]
-    # Z = model[2, :]
+            l2_xy = dx * dx + dy * dy
+            l2_z = dz * dz
+            exp_l2_z_b = torch.exp(-l2_z * b[None, :])
+            exp_l2_xy_b = torch.exp(-l2_xy * b[None, :])
 
-    scale = 1 / Res
+            z_sum = exp_l2_z_b.sum(dim=0)
+            pj_j = exp_l2_xy_b * z_sum[None, :] * h[None, :]
+            pj_j_b = pj_j * b[None, :]
 
-    for iter in range(iterations):
-        projs = np.zeros((N1, N2, num_pj), dtype=dtype)
+            r2_dx = ((rotation[0, 0] * dx + rotation[0, 1] * dy) * pj_j_b)
+            r2_dy = ((rotation[1, 0] * dx + rotation[1, 1] * dy) * pj_j_b)
+            r2_dz = ((rotation[2, 0] * dx + rotation[2, 1] * dy) * pj_j_b)
+
+            sum_dz_exp = (dz * exp_l2_z_b).sum(dim=0)[None, :] * exp_l2_xy_b
+            sum_dz_hb = sum_dz_exp * (h * b)[None, :]
+            xj_j = r2_dx + rotation[0, 2] * sum_dz_hb
+            yj_j = r2_dy + rotation[1, 2] * sum_dz_hb
+            zj_j = r2_dz + rotation[2, 2] * sum_dz_hb
+
+            xx = x_round[None, :] + center_x + dx_flat.to(torch.int64)[:, None]
+            yy = y_round[None, :] + center_y + dy_flat.to(torch.int64)[:, None]
+            valid = (xx >= 0) & (xx < n1) & (yy >= 0) & (yy < n2)
+            flat_idx = xx * n2 + yy
+            projs_flat[i].scatter_add_(0, flat_idx[valid], pj_j[valid])
+
+            grad_x_set[i, :, :] = xj_j.T.contiguous()
+            grad_y_set[i, :, :] = yj_j.T.contiguous()
+            grad_z_set[i, :, :] = zj_j.T.contiguous()
+
+        projs = projs_flat.reshape(num_pj, n1, n2).permute(1, 2, 0).contiguous()
+        projs = _apply_fixed_fa_torch(projs, fixed_fa)
+        residual = projs - y_t
+        err_value = float((torch.sum(torch.abs(residual)) / torch.sum(torch.abs(y_t))).detach().cpu())
+        errR.append(err_value)
+        print(f"{iter_idx + 1}.f = {err_value:.5f}")
+
+        res_batch = residual.permute(2, 0, 1).reshape(num_pj, n1 * n2).contiguous()
+        grad_x = torch.zeros(num_atom, dtype=dtype, device=device)
+        grad_y = torch.zeros_like(grad_x)
+        grad_z = torch.zeros_like(grad_x)
 
         for i in range(num_pj):
-            RM1 = matrix_quaternion_rot([0, 0, 1], angles[i, 0])
-            RM2 = matrix_quaternion_rot([0, 1, 0], angles[i, 1])
-            RM3 = matrix_quaternion_rot([1, 0, 0], angles[i, 2])
-            R = np.dot(np.dot(RM1, RM2), RM3)
-            model_rot = np.dot(R.T, np.vstack((X.flatten(), Y.flatten(), Z.flatten())))
+            x_round = x_round_all[i, :]
+            y_round = y_round_all[i, :]
+            xx = x_round[:, None] + center_x + dx_flat.to(torch.int64)[None, :]
+            yy = y_round[:, None] + center_y + dy_flat.to(torch.int64)[None, :]
+            valid = (xx >= 0) & (xx < n1) & (yy >= 0) & (yy < n2)
+            flat_idx = xx * n2 + yy
+            patch_res = torch.zeros((num_atom, patch_n * patch_n), dtype=dtype, device=device)
+            patch_res[valid] = res_batch[i, flat_idx[valid]]
+            grad_x += torch.sum(patch_res * grad_x_set[i], dim=1)
+            grad_y += torch.sum(patch_res * grad_y_set[i], dim=1)
+            grad_z += torch.sum(patch_res * grad_z_set[i], dim=1)
 
-            X_cen = model_rot[0, :].reshape((1, 1, num_atom))
-            Y_cen = model_rot[1, :].reshape((1, 1, num_atom))
-            Z_cen = model_rot[2, :].reshape((1, 1, num_atom))
+        dt = step_sz / torch.mean(h) ** 2 / torch.mean(b) ** 2 / half_width ** 2 / num_pj / (n1 * n2)
+        x = x - dt * grad_x
+        y = y - dt * grad_y
+        z = z - dt * grad_z
 
-            # X_cen = model_rot[0, :]
-            # Y_cen = model_rot[1, :]
-            # Z_cen = model_rot[2, :]
+        diff_x = x - x_ori
+        diff_y = y - y_ori
+        diff_z = z - z_ori
+        diff_norm = torch.sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z)
+        limited = diff_norm > scale
+        safe_norm = torch.where(limited, diff_norm, torch.ones_like(diff_norm))
+        x = torch.where(limited, x_ori + scale * diff_x / safe_norm, x)
+        y = torch.where(limited, y_ori + scale * diff_y / safe_norm, y)
+        z = torch.where(limited, z_ori + scale * diff_z / safe_norm, z)
+        h = torch.clamp(h, min=0)
+        b = torch.clamp(b, min=0)
 
-            X_round = _matlab_round(X_cen).astype(int)
-            Y_round = _matlab_round(Y_cen).astype(int)
-            Z_round = _matlab_round(Z_cen).astype(int)
+        model_arr.append(torch.stack((x, y, z), dim=0).detach().cpu().numpy().astype(np.float64) * res)
 
-            Dx = X_crop.reshape(X_crop.shape[0], X_crop.shape[1], 1) + (X_round - X_cen) #todo: stuck! bsxfun plus can handle different size.
-            Dy = Y_crop.reshape(Y_crop.shape[0], Y_crop.shape[1], 1) + (Y_round - Y_cen)
-            Dz = Z_crop.reshape(1, Z_crop.shape[0], 1) + (Z_round - Z_cen)
+    model_np = torch.stack((x, y, z), dim=0).detach().cpu().numpy().astype(np.float64) * res
+    h_np_out = h.detach().cpu().numpy().astype(np.float64, copy=False)
+    b_np_out = b.detach().cpu().numpy().astype(np.float64, copy=False)
+    param = np.vstack([h_np_out, (res * np.pi) ** 2 / b_np_out, model_np]).astype(np.float64, copy=False)
+    return projs.detach().cpu().numpy().astype(np.float64, copy=False), param, errR, model_arr
 
-            l2_xy = Dx ** 2 + Dy ** 2
-            l2_z = Dz ** 2
 
-            l2_xy_b = l2_xy * b
-            l2_z_b = l2_z * b
-            exp_l2_z_b = np.exp(-l2_z_b)
-            exp_l2_xy_b = np.exp(-l2_xy_b)
-
-            pj_j = exp_l2_xy_b * (np.sum(exp_l2_z_b, axis=1).reshape(1, 1, -1))
-            pj_j = pj_j * h
-            pj_j_b = pj_j * b
-
-            grad_exp = exp_l2_xy_b * (np.sum(l2_z * np.exp(-l2_z_b), axis=1).reshape(1, 1, -1))
-            bj_j = h * grad_exp + pj_j * l2_xy
-
-            R2_Dx = ((R[0, 0] * Dx + R[0, 1] * Dy) * pj_j_b)
-            R2_Dy = ((R[1, 0] * Dx + R[1, 1] * Dy) * pj_j_b)
-            R2_Dz = ((R[2, 0] * Dx + R[2, 1] * Dy) * pj_j_b)
-
-            Dz_exp_l2_z_b = Dz * exp_l2_z_b
-            sum_Dz_exp = ((np.sum(Dz_exp_l2_z_b, axis=1).reshape(1,1,-1)) * exp_l2_xy_b)
-
-            sum_Dz_hb = sum_Dz_exp * (h * b)
-
-            xj_j = R2_Dx + R[0, 2] * sum_Dz_hb
-            yj_j = R2_Dy + R[1, 2] * sum_Dz_hb
-            zj_j = R2_Dz + R[2, 2] * sum_Dz_hb
-
-            for k in range(num_atom):
-                indx = X_round[0,0,k] + np.arange(-half_width, half_width + 1) + (N1 + 1) // 2 -1
-                indy = Y_round[0,0,k] + np.arange(-half_width, half_width + 1) + (N2 + 1) // 2 -1
-
-                indx = indx.astype(int)
-                indy = indy.astype(int)
-
-                projs[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] += pj_j[:, :, k]
-                index[:, i, k] = [X_round[0,0,k], Y_round[0,0,k]]
-
-                grad_h_set[:, :, i, k] = pj_j[:, :, k]
-                grad_b_set[:, :, i, k] = bj_j[:, :, k]
-
-                grad_x_set[:, :, i, k] = xj_j[:, :, k]
-                grad_y_set[:, :, i, k] = yj_j[:, :, k]
-                grad_z_set[:, :, i, k] = zj_j[:, :, k]
-
-        for i in range(num_pj):
-            projs[:, :, i] = np.asarray(
-                np.real(my_ifft(my_fft(projs[:, :, i]) * fixed_fa)),
-                dtype=dtype,
-            )
-
-        res = projs - ydata
-        errR.append(np.sum(np.abs(res.flatten())) / np.sum(np.abs(ydata.flatten())))
-        print(f'{iter+1}.f = {errR[-1]:.5f}')
-
-        for k in range(num_atom):
-            grad_x_k = 0
-            grad_y_k = 0
-            grad_z_k = 0
-            grad_h_k = 0
-            grad_b_k = 0
-            for i in range(num_pj):
-                indx = index[0, i, k] + np.arange(-half_width, half_width + 1) + (N1 + 1) // 2 -1
-                indy = index[1, i, k] + np.arange(-half_width, half_width + 1) + (N2 + 1) // 2 -1
-
-                indx = indx.astype(int)
-                indy = indy.astype(int)
-
-                grad_x_k += np.sum((res[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] * grad_x_set[:, :, i, k]).flatten())
-                grad_y_k += np.sum((res[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] * grad_y_set[:, :, i, k]).flatten())
-                grad_z_k += np.sum((res[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] * grad_z_set[:, :, i, k]).flatten())
-                grad_h_k += np.sum((res[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] * grad_h_set[:, :, i, k]).flatten())
-                grad_b_k += np.sum((res[indx[0]:(indx[-1]+1), indy[0]:(indy[-1]+1), i] * grad_b_set[:, :, i, k]).flatten()) #todo: check
-
-            dt = step_sz / np.mean(h) ** 2 / np.mean(b) ** 2 / half_width ** 2 / num_pj / (N1 * N2)
-            X[0, 0, k] -= dt * grad_x_k
-            Y[0, 0, k] -= dt * grad_y_k
-            Z[0, 0, k] -= dt * grad_z_k
-
-        diff_X = X - X_ori
-        diff_Y = Y - Y_ori
-        diff_Z = Z - Z_ori
-        diff_norm = np.sqrt(diff_X ** 2 + diff_Y ** 2 + diff_Z ** 2)
-        index_3 = (diff_norm > scale) #todo: check
-        X[index_3] = X_ori[index_3] + scale * diff_X[index_3] / diff_norm[index_3]
-        Y[index_3] = Y_ori[index_3] + scale * diff_Y[index_3] / diff_norm[index_3]
-        Z[index_3] = Z_ori[index_3] + scale * diff_Z[index_3] / diff_norm[index_3]
-
-        h = np.maximum(h, 0)
-        b = np.maximum(b, 0)
-
-        # model_arr.append([X[0, 0, :], Y[0, 0, :], Z[0, 0, :]] * Res)
-        model_arr.append((np.vstack([X.flatten(), Y.flatten(), Z.flatten()]).T * Res).T)  #todo: change model_arr from list into 3D matrix. So that model_arr(:,:,iter)= new_value.
-
-    # model = np.array([X[0, 0, :], Y[0, 0, :], Z[0, 0, :]]) * Res
-    model = (np.vstack([X.flatten(), Y.flatten(), Z.flatten()]).T * Res).T
-    param = np.vstack([h.flatten(), (Res * np.pi) ** 2 / b, model]).astype(np.float64, copy=False)
-
-    return projs, param, errR, model_arr
+def gradient_fixHB_XYZ(para, xdata, ydata):
+    return gradient_fixHB_XYZ_torch(para, xdata, ydata)

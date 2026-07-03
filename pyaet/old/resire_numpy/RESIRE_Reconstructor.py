@@ -3,7 +3,7 @@ import pickle
 
 import numpy as np
 
-from pyaet.resire_numpy.interp_pj_realspace import interp_pj_realspace
+from pyaet.old.resire_numpy.interp_pj_realspace import interp_pj_realspace
 from pyaet.src.io_helper import read_mat_file
 
 
