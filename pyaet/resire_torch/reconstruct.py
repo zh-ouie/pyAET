@@ -74,13 +74,13 @@ def _torch_ifftshift(x, dim=None):
 
 def _torch_my_fft(img_t):
     shifted_t = _torch_ifftshift(img_t)
-    fft_t = shared_fftn(shifted_t, backend="torch_matlab_single")
+    fft_t = shared_fftn(shifted_t)
     del shifted_t
     return _torch_fftshift(fft_t)
 
 
 def _torch_my_fft_unshifted_output(img_t):
-    return shared_fftn(shared_ifftshift(img_t), backend="torch_matlab_single")
+    return shared_fftn(shared_ifftshift(img_t))
 
 
 def _torch_interp3_fftshifted(data, x, y, z, origin_offset: int = 1):
@@ -444,7 +444,7 @@ def reconstruct(obj):
 
                 t_ifft = time.perf_counter()
                 pj_chunk_t = shared_ifftshift(pj_chunk_t, axes=(0, 1))
-                pj_chunk_t = shared_fftn(pj_chunk_t, axes=(0, 1), inverse=True, backend="torch_matlab_single")
+                pj_chunk_t = shared_fftn(pj_chunk_t, axes=(0, 1), inverse=True)
                 pj_chunk_t = shared_fftshift(pj_chunk_t, axes=(0, 1)).real
                 pj_cal_t[:, :, start:stop] = _torch_cropped_out(
                     pj_chunk_t,
@@ -464,7 +464,7 @@ def reconstruct(obj):
         if not ifft_done:
             t0 = time.perf_counter()
             pj_cal_t = shared_ifftshift(pj_cal_t, axes=(0, 1))
-            pj_cal_t = shared_fftn(pj_cal_t, axes=(0, 1), inverse=True, backend="torch_matlab_single")
+            pj_cal_t = shared_fftn(pj_cal_t, axes=(0, 1), inverse=True)
             pj_cal_t = shared_fftshift(pj_cal_t, axes=(0, 1)).real
             pj_cal_t = _torch_cropped_out(pj_cal_t, [dimx, dimy, num_pj])
             _sync_for_timing(device, sync_timing)

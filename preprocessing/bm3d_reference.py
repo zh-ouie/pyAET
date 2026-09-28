@@ -1,9 +1,8 @@
-"""Readable experimental BM3D core, independent of bm3d/bm4d binaries.
+"""BM3D denoising with DCT/Haar transforms and ordered block matching.
 
-Implements the teacher's DCT/Haar parameter profile. Unverified legacy details
-(search boundaries, ties, and adaptive sampling) are explicit options rather
-than implicit claims of equivalence. This is a diagnostic reference, not the
-production denoiser. Inputs and sigma use the same intensity scale.
+Inputs and sigma use the same intensity scale. The normal-noise profile uses
+single-precision matching and filtering, with explicit search boundaries,
+tie handling and adaptive sampling parameters.
 """
 from dataclasses import dataclass
 from functools import lru_cache
@@ -273,8 +272,8 @@ def denoise(image, sigma, ht=HT_PARAMETERS, wiener=WIENER_PARAMETERS, trace=Fals
 def legacy_candidate(image, sigma, trace=False):
     """Legacy normal-noise profile with ordered float32 matching and filtering.
 
-    The radius 50 and dynamic B-1 sampling rules are validated on synthetic
-    probes; this entry point does not promise arbitrary-input equivalence.
+    Uses a search radius of 50 and dynamic B-1 sampling.
+    Supports normalized sigma times 255 up to 40.
     """
     from dataclasses import replace
     if sigma * 255 > 40:

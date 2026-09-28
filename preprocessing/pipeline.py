@@ -13,7 +13,7 @@ import numpy as np
 from scipy import ndimage, optimize, signal, sparse
 from scipy.io import loadmat
 
-from pyaet.fft_backend import fftn, fftshift, ifftshift
+from pyaet.fft_backend import fftn, fftshift, ifftshift, ordered_fft2, fft_convolve_full
 
 
 @dataclass
@@ -57,9 +57,9 @@ _MATLAB_DISK_DECOMPOSITION = {
 
 def _shift2(image, dy, dx):
     # Fourier shift matches MATLAB's My_FourierShift more closely than roll.
-    f = fftn(image, backend="numpy")
+    f = fftn(image)
     return fftn(
-        ndimage.fourier_shift(f, (dy, dx)), inverse=True, backend="numpy"
+        ndimage.fourier_shift(f, (dy, dx)), inverse=True
     ).real
 
 
@@ -119,9 +119,8 @@ def _matlab_grey_opening(image, radius):
 def _phase_shift(reference, image):
     a = reference - reference.mean(); b = image - image.mean()
     c = fftn(
-        fftn(a, backend="numpy") * np.conj(fftn(b, backend="numpy")),
+        fftn(a) * np.conj(fftn(b)),
         inverse=True,
-        backend="numpy",
     )
     y, x = np.unravel_index(np.argmax(np.abs(c)), c.shape)
     if y > c.shape[0] // 2: y -= c.shape[0]
@@ -131,22 +130,20 @@ def _phase_shift(reference, image):
 
 def _registration_fourier_shift(image, dy, dx):
     """Centered inverse/forward FFT pair, preserving MATLAB single inputs."""
-    from scipy import fft
-    from ._registration_fft import ordered_fft2
     ny, nx = image.shape
     yy = np.arange(-(ny // 2), (ny - 1) // 2 + 1)[:, None]
     xx = np.arange(-(nx // 2), (nx - 1) // 2 + 1)[None, :]
     # MATLAB ifftn/fftn traverse dimensions in column-major order. Explicit
     # one-dimensional calls preserve that order for real single input too.
-    centered = fft.ifftshift(image)
-    spectrum = fft.fftshift(ordered_fft2(centered, inverse=True))
+    centered = ifftshift(image)
+    spectrum = fftshift(ordered_fft2(centered, inverse=True))
     # MATLAB constructs Pfactor in double precision, then the product with
     # the single-precision spectrum is stored as single.  Rounding Pfactor
     # to complex64 before multiplication changes the registered pixels.
     phase = np.exp(2j * np.pi * (dx * xx / nx + dy * yy / ny))
     product = (spectrum.astype(np.complex128) * phase).astype(spectrum.dtype)
-    product = fft.ifftshift(product)
-    return fft.fftshift(ordered_fft2(product)).real
+    product = ifftshift(product)
+    return fftshift(ordered_fft2(product)).real
 
 
 def _normxcorr2(template, image):
@@ -155,10 +152,10 @@ def _normxcorr2(template, image):
     image = np.asarray(image, dtype=np.float64)
     centered = template - template.mean()
     template_energy = np.sum(centered * centered)
-    numerator = signal.correlate(image, centered, mode="full", method="fft")
+    numerator = fft_convolve_full(image, np.flip(centered))
     ones = np.ones(template.shape, dtype=np.float64)
-    local_sum = signal.convolve(image, ones, mode="full", method="fft")
-    local_sum2 = signal.convolve(image * image, ones, mode="full", method="fft")
+    local_sum = fft_convolve_full(image, ones)
+    local_sum2 = fft_convolve_full(image * image, ones)
     local_energy = np.maximum(local_sum2 - local_sum * local_sum / template.size, 0)
     denominator = np.sqrt(template_energy * local_energy)
     result = np.zeros_like(numerator)
@@ -189,12 +186,10 @@ def _matlab_registration_shift(reference, image, resolution=0.05,
         image = image.astype(np.float64)
     # The original EMD is single. MATLAB keeps the FFT and its phase product
     # single before normxcorr2 converts the shifted image to double.
-    from scipy import fft
-    from ._registration_fft import ordered_fft2
     # Candidate generation must use the same ordered FFT path as the applied
     # registration shift. A one-ULP candidate change can reverse close peaks
     # and produce a full search-grid jump (HEA-23, view 13, repeated frame 3).
-    spectrum = fft.fftshift(ordered_fft2(fft.ifftshift(image)))
+    spectrum = fftshift(ordered_fft2(ifftshift(image)))
     ky = np.arange(-(image.shape[0] // 2), (image.shape[0] - 1) // 2 + 1)[:, None]
     kx = np.arange(-(image.shape[1] // 2), (image.shape[1] - 1) // 2 + 1)[None, :]
 
@@ -203,7 +198,7 @@ def _matlab_registration_shift(reference, image, resolution=0.05,
         # Match the applied shift: form the phase in double precision, multiply
         # before rounding the product to the spectrum precision.
         product = (spectrum.astype(np.complex128) * phase).astype(spectrum.dtype)
-        return fft.fftshift(ordered_fft2(fft.ifftshift(product), inverse=True)).real
+        return fftshift(ordered_fft2(ifftshift(product), inverse=True)).real
 
     window_center_y = int(np.floor((reference.shape[0] + 1) / 2 + 0.5)) - 1
     window_center_x = int(np.floor((reference.shape[1] + 1) / 2 + 0.5)) - 1
@@ -617,10 +612,10 @@ def _gaussian_mask_expansion(mask, half_width=3.0, threshold=0.1):
     kernel_pad = np.zeros(shape, dtype=np.float64)
     mask_pad[start_y:start_y + height, start_x:start_x + width] = mask
     kernel_pad[start_y:start_y + height, start_x:start_x + width] = kernel
-    mask_spectrum = fftn(ifftshift(mask_pad), backend="numpy")
-    kernel_spectrum = fftn(ifftshift(kernel_pad), backend="numpy")
+    mask_spectrum = fftn(ifftshift(mask_pad))
+    kernel_spectrum = fftn(ifftshift(kernel_pad))
     convolution = fftshift(
-        fftn(mask_spectrum * kernel_spectrum, inverse=True, backend="numpy")
+        fftn(mask_spectrum * kernel_spectrum, inverse=True)
     ).real
     return convolution[start_y:start_y + height, start_x:start_x + width] > threshold
 
@@ -1062,10 +1057,10 @@ def _wt_background_value(image):
 
 
 def _wt_clear_top_ffts(image):
-    spectrum = fftshift(fftn(image, backend="numpy"))
+    spectrum = fftshift(fftn(image))
     spectrum[0, :] = 0
     spectrum[:, 0] = 0
-    return fftn(ifftshift(spectrum), inverse=True, backend="numpy")
+    return fftn(ifftshift(spectrum), inverse=True)
 
 
 def _wt_add_padding(image):
@@ -1097,7 +1092,7 @@ def _wt_shear_image(image, dimension, factor):
         np.arange(-rows / 2, rows / 2), np.arange(-columns / 2, columns / 2)
     )
     axis = int(dimension) - 1
-    spectrum = fftshift(fftn(image, axes=(axis,), backend="numpy"), axes=(axis,))
+    spectrum = fftshift(fftn(image, axes=(axis,)), axes=(axis,))
     spectrum *= np.exp(-2j * np.pi / image.shape[axis] * xx * yy * factor)
     spectrum[0, :] = 0
     spectrum[:, 0] = 0
@@ -1105,7 +1100,6 @@ def _wt_shear_image(image, dimension, factor):
         ifftshift(spectrum, axes=(axis,)),
         axes=(axis,),
         inverse=True,
-        backend="numpy",
     )
     return result.real
 
@@ -1118,7 +1112,7 @@ def _wt_scale_image(image, dimension, scale_factor):
     n = image.shape[int(dimension) - 1]
     if scale_factor > 1:
         internal = 1.0 / scale_factor
-        spectrum = fftshift(fftn(work, backend="numpy"))
+        spectrum = fftshift(fftn(work))
         spectrum[0, :] = 0
         spectrum[:, 0] = 0
         scaled = int(_matlab_round(n / internal / 2.0)) * 2
@@ -1127,7 +1121,7 @@ def _wt_scale_image(image, dimension, scale_factor):
         padded[offset:offset + n, :] = spectrum
         padded[0, :] = 0
         padded[:, 0] = 0
-        expanded = fftn(ifftshift(padded), inverse=True, backend="numpy")
+        expanded = fftn(ifftshift(padded), inverse=True)
         result = expanded[offset:offset + n, :].real
     else:
         internal = 1.0 / scale_factor
@@ -1135,11 +1129,11 @@ def _wt_scale_image(image, dimension, scale_factor):
         offset = (scaled - n) // 2
         padded = np.full((scaled, n), _wt_background_value(image), dtype=np.float64)
         padded[offset:offset + n, :] = np.real(work)
-        spectrum = fftshift(fftn(padded, backend="numpy"))
+        spectrum = fftshift(fftn(padded))
         cropped = spectrum[offset:offset + n, :]
         cropped[0, :] = 0
         cropped[:, 0] = 0
-        result = fftn(ifftshift(cropped), inverse=True, backend="numpy").real
+        result = fftn(ifftshift(cropped), inverse=True).real
     return result.T if transpose else result
 
 

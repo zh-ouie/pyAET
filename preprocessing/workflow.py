@@ -36,7 +36,10 @@ def run_preprocessing(raw, angles, centers=None, config=None, *, checkpoint_dir=
     manifest = dict(schema_version=1, paper_doi='10.1038/s41586-025-09857-4',
                     scope='Table 1 preprocessing organized around legacy MATLAB implementation',
                     config=asdict(cfg), complete=False, stages=[],
-                    registration_fftw_library=os.environ.get('AET_REGISTRATION_FFTW_LIBRARY'),
+                    cpu_fft_backend='fftw',
+                    fftw_single_library=(os.environ.get('AET_FFTW_SINGLE_LIBRARY') or
+                                         os.environ.get('AET_REGISTRATION_FFTW_LIBRARY')),
+                    fftw_double_library=os.environ.get('AET_FFTW_DOUBLE_LIBRARY'),
                     regionfill=regionfill_backend_info(),
                     mask_coordinates='pre-transpose and pre-export-crop',
                     parity_claim='Numerical parity depends on data and backends; arbitrary-input bitwise identity is not guaranteed')

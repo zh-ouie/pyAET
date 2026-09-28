@@ -1,5 +1,5 @@
-"""Compatibility wrapper for the shared FFT interface."""
-from pyaet.fft_backend import legacy_forward_fftn
+"""Compatibility wrapper for the shared centred FFT."""
+from pyaet.fft_backend import centered_fftn
 
 def my_fft(img):
-    return legacy_forward_fftn(img)
+    return centered_fftn(img)
