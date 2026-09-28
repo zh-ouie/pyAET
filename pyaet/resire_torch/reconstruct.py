@@ -1,3 +1,4 @@
+from pyaet.fft_backend import fftn as shared_fftn, fftshift as shared_fftshift, ifftshift as shared_ifftshift, rfftn as shared_rfftn
 import os
 import time
 import gc
@@ -64,35 +65,22 @@ def _as_torch_f_contig(array: np.ndarray, device: str, torch_dtype):
 
 
 def _torch_fftshift(x, dim=None):
-    return torch.fft.fftshift(x, dim=dim)
+    return shared_fftshift(x, axes=dim)
 
 
 def _torch_ifftshift(x, dim=None):
-    return torch.fft.ifftshift(x, dim=dim)
+    return shared_ifftshift(x, axes=dim)
 
 
 def _torch_my_fft(img_t):
     shifted_t = _torch_ifftshift(img_t)
-    fft_t = torch.fft.fftn(shifted_t)
+    fft_t = shared_fftn(shifted_t, backend="torch_matlab_single")
     del shifted_t
     return _torch_fftshift(fft_t)
 
 
 def _torch_my_fft_unshifted_output(img_t):
-    if all(size % 2 == 0 for size in img_t.shape):
-        fft_t = torch.fft.fftn(img_t)
-        for axis, size in enumerate(img_t.shape):
-            signs = torch.ones(size, dtype=img_t.dtype, device=img_t.device)
-            signs[1::2] = -1
-            view_shape = [1] * img_t.ndim
-            view_shape[axis] = size
-            fft_t.mul_(signs.reshape(view_shape))
-        return fft_t
-
-    shifted_t = _torch_ifftshift(img_t)
-    fft_t = torch.fft.fftn(shifted_t)
-    del shifted_t
-    return fft_t
+    return shared_fftn(shared_ifftshift(img_t), backend="torch_matlab_single")
 
 
 def _torch_interp3_fftshifted(data, x, y, z, origin_offset: int = 1):
@@ -348,6 +336,20 @@ def reconstruct(obj):
     interp3_chunk_size = int(getattr(obj, "gpu_interp3_chunk_size", 0) or 0)
     backproj_rot_on_demand = bool(getattr(obj, "gpu_backproj_rot_on_demand", False))
     avoid_fftshift_copy = bool(getattr(obj, "gpu_avoid_fftshift_copy", False))
+    # CUDA uses the validated half-spectrum kernel when Triton is installed.
+    # CPU and installations without Triton retain full-spectrum interpolation.
+    spectral_interpolator = None
+    if device == "cuda" and avoid_fftshift_copy:
+        from functools import partial
+        from pyaet.resire_torch.triton_spectral import interp3_spectral, triton
+        if triton is not None:
+            spectral_interpolator = partial(interp3_spectral,
+                full_shape=(obj.n2_oversampled, obj.n1_oversampled, obj.n2_oversampled))
+    project_interp = spectral_interpolator or (
+        _torch_interp3_fftshifted if avoid_fftshift_copy else torch_interp3)
+    perf["fft_precision"] = "matlab_single"
+    perf["spectral_acceleration"] = "rfft" if spectral_interpolator else "full"
+    print("FFT: matlab_single; spectrum:", perf["spectral_acceleration"])
     perf["interp3_chunk_size"] = int(interp3_chunk_size)
     perf["grid_sample_chunk_size"] = int(grid_sample_chunk_size)
     perf["precompute_grid_sample_grid"] = bool(precompute_grid_sample_grid)
@@ -425,7 +427,8 @@ def reconstruct(obj):
         print(f"iteration {iter}")
 
         t0 = time.perf_counter()
-        recK_t = _torch_my_fft_unshifted_output(rec_big_t) if avoid_fftshift_copy else _torch_my_fft(rec_big_t)
+        recK_t = (shared_rfftn(shared_ifftshift(rec_big_t)) if spectral_interpolator else
+                  (_torch_my_fft_unshifted_output(rec_big_t) if avoid_fftshift_copy else _torch_my_fft(rec_big_t)))
         _sync_for_timing(device, sync_timing)
         perf["torch_fft_s"] += time.perf_counter() - t0
 
@@ -434,24 +437,15 @@ def reconstruct(obj):
             for start in range(0, num_pj, interp3_chunk_size):
                 stop = min(start + interp3_chunk_size, num_pj)
                 t_interp = time.perf_counter()
-                pj_chunk_t = torch_interp3(
-                    recK_t,
-                    xj_t[:, :, start:stop],
-                    yj_t[:, :, start:stop],
-                    zj_t[:, :, start:stop],
-                ) if not avoid_fftshift_copy else _torch_interp3_fftshifted(
-                    recK_t,
-                    xj_t[:, :, start:stop],
-                    yj_t[:, :, start:stop],
-                    zj_t[:, :, start:stop],
-                )
+                pj_chunk_t = project_interp(recK_t, xj_t[:, :, start:stop],
+                                            yj_t[:, :, start:stop], zj_t[:, :, start:stop])
                 _sync_for_timing(device, sync_timing)
                 perf["torch_interp3_s"] += time.perf_counter() - t_interp
 
                 t_ifft = time.perf_counter()
-                pj_chunk_t = torch.fft.ifftshift(pj_chunk_t, dim=(0, 1))
-                pj_chunk_t = torch.fft.ifft2(pj_chunk_t, dim=(0, 1))
-                pj_chunk_t = torch.fft.fftshift(pj_chunk_t, dim=(0, 1)).real
+                pj_chunk_t = shared_ifftshift(pj_chunk_t, axes=(0, 1))
+                pj_chunk_t = shared_fftn(pj_chunk_t, axes=(0, 1), inverse=True, backend="torch_matlab_single")
+                pj_chunk_t = shared_fftshift(pj_chunk_t, axes=(0, 1)).real
                 pj_cal_t[:, :, start:stop] = _torch_cropped_out(
                     pj_chunk_t,
                     [dimx, dimy, stop - start],
@@ -462,21 +456,16 @@ def reconstruct(obj):
             ifft_done = True
         else:
             t0 = time.perf_counter()
-            pj_cal_t = torch_interp3(recK_t, xj_t, yj_t, zj_t) if not avoid_fftshift_copy else _torch_interp3_fftshifted(
-                recK_t,
-                xj_t,
-                yj_t,
-                zj_t,
-            )
+            pj_cal_t = project_interp(recK_t, xj_t, yj_t, zj_t)
             _sync_for_timing(device, sync_timing)
             perf["torch_interp3_s"] += time.perf_counter() - t0
             ifft_done = False
 
         if not ifft_done:
             t0 = time.perf_counter()
-            pj_cal_t = torch.fft.ifftshift(pj_cal_t, dim=(0, 1))
-            pj_cal_t = torch.fft.ifft2(pj_cal_t, dim=(0, 1))
-            pj_cal_t = torch.fft.fftshift(pj_cal_t, dim=(0, 1)).real
+            pj_cal_t = shared_ifftshift(pj_cal_t, axes=(0, 1))
+            pj_cal_t = shared_fftn(pj_cal_t, axes=(0, 1), inverse=True, backend="torch_matlab_single")
+            pj_cal_t = shared_fftshift(pj_cal_t, axes=(0, 1)).real
             pj_cal_t = _torch_cropped_out(pj_cal_t, [dimx, dimy, num_pj])
             _sync_for_timing(device, sync_timing)
             perf["torch_ifft2_s"] += time.perf_counter() - t0

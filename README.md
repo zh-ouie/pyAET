@@ -6,6 +6,19 @@ refinement. The main workflow is organized as four directly runnable steps. The
 same step scripts run on CUDA when a compatible GPU is available and on CPU
 otherwise.
 
+## Projection preprocessing
+
+Before Step1 reconstruction, edit and run `run_image_processing.py`. See
+[the preprocessing guide](preprocessing/README.md) for inputs, outputs,
+independent function calls, and the optional numbered stage scripts.
+The existing four main workflow steps retain their original numbering.
+
+Preprocessing and reconstruction use `pyaet/fft_backend.py`. Torch reconstruction uses one high-precision FFT policy. CUDA uses
+rfft spectral interpolation when Triton is installed and unshifted spectra are
+enabled; otherwise it uses the high-precision full-spectrum path. CPU/CUDA
+selection and the independent Torch reconstructor remain unchanged.
+Install the optional CUDA FFT kernel with `pip install -e ".[gpu-fft]"`.
+
 ## Features
 
 - Torch-based RESIRE reconstruction for CPU and CUDA.

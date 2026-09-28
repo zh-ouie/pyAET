@@ -21,11 +21,13 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yanglonggroup/pyAET",
     packages=setuptools.find_namespace_packages(
-        include=["pyaet*"],
+        include=["pyaet*", "preprocessing*"],
         exclude=["pyaet.old", "pyaet.old.*"],
     ),
     package_dir={"pyaet": "pyaet"},
-    package_data={"pyaet.src": ["*.mat", "*.m"]},
+    package_data={"pyaet.src": ["*.mat", "*.m"],
+                  "preprocessing": ["data/*.mat", "build_parity_fftw.sh"]},
+    extras_require={"gpu-fft": ["triton>=3.1; platform_system == 'Linux'"], "parity": ["cholespy==2.2.0"], "package-bm3d": ["bm3d==4.0.3"]},
     install_requires=install_requires,
     classifiers=[
         'Programming Language :: Python :: 3',
